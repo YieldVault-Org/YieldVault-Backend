@@ -136,6 +136,32 @@ function listByVault(vaultId) {
     .map(serialize);
 }
 
+/**
+ * Aggregate a user's portfolio across every vault they hold a position in:
+ * total invested principal, current value and net earnings.
+ */
+function getUserSummary(user) {
+  const positions = listPositions(user);
+  const totals = positions.reduce(
+    (acc, p) => {
+      acc.principal = round(acc.principal + p.principal);
+      acc.value = round(acc.value + p.assetValue);
+      acc.earnings = round(acc.earnings + p.earnings);
+      return acc;
+    },
+    { principal: 0, value: 0, earnings: 0 }
+  );
+
+  return {
+    user: user || null,
+    positionCount: positions.length,
+    vaults: new Set(positions.map((p) => p.vaultId)).size,
+    totalPrincipal: totals.principal,
+    totalValue: totals.value,
+    totalEarnings: totals.earnings,
+  };
+}
+
 module.exports = {
   serialize,
   deposit,
@@ -143,4 +169,5 @@ module.exports = {
   getPosition,
   listPositions,
   listByVault,
+  getUserSummary,
 };

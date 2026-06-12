@@ -49,6 +49,10 @@ router.post(
 // GET /api/positions?user= - list positions, optionally filtered by user
 router.get('/', asyncHandler(positionController.listPositions));
 
+// GET /api/positions/summary?user= - aggregate portfolio totals for a user.
+// Registered before /:id so the literal path is not treated as an id.
+router.get('/summary', asyncHandler(positionController.getSummary));
+
 // GET /api/positions/:id - position detail
 router.get('/:id', asyncHandler(positionController.getPosition));
 

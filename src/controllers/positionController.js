@@ -27,9 +27,15 @@ function getPosition(req, res) {
   res.json({ position });
 }
 
+function getSummary(req, res) {
+  const summary = positionService.getUserSummary(req.query.user);
+  res.json({ summary });
+}
+
 module.exports = {
   deposit,
   withdraw,
   listPositions,
+  getSummary,
   getPosition,
 };
