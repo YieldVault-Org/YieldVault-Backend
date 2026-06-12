@@ -32,6 +32,7 @@ All routes are namespaced under `/api`.
 | GET    | `/api/health`              | Service liveness probe                       |
 | GET    | `/api/vaults`              | List vaults (TVL, APY, total shares)         |
 | GET    | `/api/vaults/:id`          | Vault detail                                 |
+| GET    | `/api/vaults/:id/positions`| Positions held in a vault                    |
 | GET    | `/api/analytics`           | Aggregate TVL and average APY                |
 | POST   | `/api/positions/deposit`   | Deposit assets into a vault                  |
 | POST   | `/api/positions/withdraw`  | Redeem shares from a vault                    |
