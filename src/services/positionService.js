@@ -128,10 +128,17 @@ function listPositions(user) {
     .map(serialize);
 }
 
+function listByVault(vaultId) {
+  return Array.from(store.positions.values())
+    .filter((p) => p.vaultId === vaultId)
+    .map(serialize);
+}
+
 module.exports = {
   serialize,
   deposit,
   withdraw,
   getPosition,
   listPositions,
+  listByVault,
 };
