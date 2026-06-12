@@ -15,4 +15,7 @@ router.get('/:id', asyncHandler(vaultController.getVault));
 // GET /api/vaults/:id/positions - positions held in a vault
 router.get('/:id/positions', asyncHandler(vaultController.getVaultPositions));
 
+// GET /api/vaults/:id/apy-history?days= - mock historical APY series
+router.get('/:id/apy-history', asyncHandler(vaultController.getVaultApyHistory));
+
 module.exports = router;

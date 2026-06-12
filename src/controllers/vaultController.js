@@ -23,8 +23,15 @@ function getVaultPositions(req, res) {
   res.json({ count: positions.length, positions });
 }
 
+function getVaultApyHistory(req, res) {
+  const days = parseInt(req.query.days, 10) || 30;
+  const history = vaultService.getApyHistory(req.params.id, days);
+  res.json({ vaultId: req.params.id, count: history.length, history });
+}
+
 module.exports = {
   listVaults,
   getVault,
   getVaultPositions,
+  getVaultApyHistory,
 };

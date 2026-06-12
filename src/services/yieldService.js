@@ -43,8 +43,32 @@ function applyAccrual(vault, now = Date.now()) {
   return round(vault.totalAssets - before);
 }
 
+/**
+ * Build a deterministic mock APY history series ending at the vault's current
+ * APY. Values wobble around the base APY using a fixed sinusoid so charts have
+ * something realistic to render without persisting real historical data.
+ */
+function apyHistory(baseApy, days = 30) {
+  const points = Math.max(1, Math.min(days, 365));
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const series = [];
+
+  for (let i = points - 1; i >= 0; i -= 1) {
+    // Bounded deviation of up to ~15% of the base APY.
+    const wobble = Math.sin(i / 3) * baseApy * 0.15;
+    series.push({
+      date: new Date(now - i * dayMs).toISOString().slice(0, 10),
+      apy: round(Math.max(0, baseApy + wobble)),
+    });
+  }
+
+  return series;
+}
+
 module.exports = {
   SECONDS_PER_YEAR,
   accrue,
   applyAccrual,
+  apyHistory,
 };

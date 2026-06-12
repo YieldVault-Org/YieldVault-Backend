@@ -52,10 +52,19 @@ function getVault(id) {
   return serialize(getVaultRecord(id));
 }
 
+/**
+ * Return a mock APY history series for a vault, ending at its current APY.
+ */
+function getApyHistory(id, days) {
+  const vault = getVaultRecord(id);
+  return yieldService.apyHistory(vault.apy, days);
+}
+
 module.exports = {
   syncVault,
   serialize,
   listVaults,
   getVaultRecord,
   getVault,
+  getApyHistory,
 };
