@@ -27,11 +27,22 @@ function getAnalytics() {
     );
   }
 
+  // Per-vault TVL share so clients can render allocation breakdowns.
+  const breakdown = vaults.map((v) => ({
+    vaultId: v.id,
+    name: v.name,
+    asset: v.asset,
+    tvl: v.totalAssets,
+    apy: v.apy,
+    share: totalTvl > 0 ? round(v.totalAssets / totalTvl) : 0,
+  }));
+
   return {
     totalTvl,
     averageApy: weightedApy,
     vaultCount: vaults.length,
     positionCount: store.positions.size,
+    breakdown,
     generatedAt: new Date().toISOString(),
   };
 }
