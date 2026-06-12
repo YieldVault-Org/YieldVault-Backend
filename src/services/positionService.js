@@ -45,6 +45,7 @@ function deposit({ user, vaultId, amount }) {
   const shares = assetsToShares(amount, vault.totalAssets, vault.totalShares);
 
   const tx = stellarService.submitInvocation('deposit', { user, vaultId, amount });
+  store.transactions.set(tx.txHash, { ...tx, user, vaultId, amount });
 
   vault.totalAssets = round(vault.totalAssets + amount);
   vault.totalShares = round(vault.totalShares + shares);
@@ -93,6 +94,7 @@ function withdraw({ user, vaultId, shares }) {
 
   const assets = sharesToAssets(shares, vault.totalAssets, vault.totalShares);
   const tx = stellarService.submitInvocation('withdraw', { user, vaultId, shares });
+  store.transactions.set(tx.txHash, { ...tx, user, vaultId, shares, assets });
 
   vault.totalAssets = round(vault.totalAssets - assets);
   vault.totalShares = round(vault.totalShares - shares);
