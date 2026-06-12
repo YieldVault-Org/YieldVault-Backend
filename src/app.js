@@ -31,7 +31,7 @@ function createApp() {
   );
   app.use(securityHeaders);
   app.use(requestTimeout());
-  app.use(express.json());
+  app.use(express.json({ limit: config.bodyLimit }));
   app.use(morgan(config.env === 'development' ? 'dev' : 'combined'));
   app.use(requestId);
   app.use(requestLogger);

@@ -27,6 +27,8 @@ const config = {
   },
   // Maximum time a request may run before it is aborted with a 503.
   requestTimeoutMs: parseInt(process.env.REQUEST_TIMEOUT_MS, 10) || 15000,
+  // Maximum accepted JSON request body size (passed to express.json).
+  bodyLimit: process.env.BODY_LIMIT || '64kb',
 };
 
 module.exports = config;
