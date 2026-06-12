@@ -4,7 +4,8 @@ const { badRequest } = require('../utils/errors');
 
 /**
  * Tiny schema validator. A schema maps field names to rule objects:
- *   { type: 'string'|'number', required: true, min: 0, positive: true }
+ *   { type: 'string'|'number', required: true, min: 0, positive: true,
+ *     max, integer, minLength, maxLength, pattern }
  * Returns Express middleware that validates the chosen request part.
  */
 function validateBody(schema) {
@@ -43,8 +44,20 @@ function validateBody(schema) {
         }
         data[field] = num;
       }
-      if (rule.type === 'string' && typeof value !== 'string') {
-        errors.push(`${field} must be a string`);
+      if (rule.type === 'string') {
+        if (typeof value !== 'string') {
+          errors.push(`${field} must be a string`);
+          return;
+        }
+        if (rule.minLength !== undefined && value.length < rule.minLength) {
+          errors.push(`${field} must be at least ${rule.minLength} characters`);
+        }
+        if (rule.maxLength !== undefined && value.length > rule.maxLength) {
+          errors.push(`${field} must be at most ${rule.maxLength} characters`);
+        }
+        if (rule.pattern && !rule.pattern.test(value)) {
+          errors.push(`${field} has an invalid format`);
+        }
       }
     });
 

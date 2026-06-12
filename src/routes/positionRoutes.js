@@ -7,16 +7,28 @@ const { validateBody } = require('../middleware/validate');
 
 const router = express.Router();
 
+// Mock user identifiers are loose Stellar-style addresses: bounded length and
+// an alphanumeric character set to reject obviously malformed input.
+const userRule = {
+  type: 'string',
+  required: true,
+  minLength: 5,
+  maxLength: 64,
+  pattern: /^[A-Za-z0-9_]+$/,
+};
+
+const vaultIdRule = { type: 'string', required: true, minLength: 5, maxLength: 64 };
+
 const depositSchema = {
-  user: { type: 'string', required: true },
-  vaultId: { type: 'string', required: true },
+  user: userRule,
+  vaultId: vaultIdRule,
   // Cap a single deposit to guard against absurd amounts in the mock.
   amount: { type: 'number', required: true, positive: true, max: 1e12 },
 };
 
 const withdrawSchema = {
-  user: { type: 'string', required: true },
-  vaultId: { type: 'string', required: true },
+  user: userRule,
+  vaultId: vaultIdRule,
   shares: { type: 'number', required: true, positive: true },
 };
 
