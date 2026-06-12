@@ -12,4 +12,7 @@ router.get('/', asyncHandler(vaultController.listVaults));
 // GET /api/vaults/:id - vault detail
 router.get('/:id', asyncHandler(vaultController.getVault));
 
+// GET /api/vaults/:id/positions - positions held in a vault
+router.get('/:id/positions', asyncHandler(vaultController.getVaultPositions));
+
 module.exports = router;
