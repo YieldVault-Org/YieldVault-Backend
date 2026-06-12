@@ -2,6 +2,7 @@
 
 const store = require('../store');
 const { round } = require('../utils/math');
+const { MIN_HISTORY_DAYS, MAX_HISTORY_DAYS } = require('../utils/constants');
 const vaultService = require('./vaultService');
 
 /**
@@ -53,7 +54,7 @@ function getAnalytics() {
  * have a plausible upward trend without persisting real historical snapshots.
  */
 function getTvlHistory(days = 30) {
-  const points = Math.max(1, Math.min(days, 365));
+  const points = Math.max(MIN_HISTORY_DAYS, Math.min(days, MAX_HISTORY_DAYS));
   const current = Array.from(store.vaults.values())
     .map(vaultService.syncVault)
     .reduce((sum, v) => sum + v.totalAssets, 0);

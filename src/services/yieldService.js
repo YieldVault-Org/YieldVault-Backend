@@ -1,6 +1,7 @@
 'use strict';
 
 const { round } = require('../utils/math');
+const { MIN_HISTORY_DAYS, MAX_HISTORY_DAYS } = require('../utils/constants');
 
 /**
  * Mock yield-accrual engine.
@@ -49,7 +50,7 @@ function applyAccrual(vault, now = Date.now()) {
  * something realistic to render without persisting real historical data.
  */
 function apyHistory(baseApy, days = 30) {
-  const points = Math.max(1, Math.min(days, 365));
+  const points = Math.max(MIN_HISTORY_DAYS, Math.min(days, MAX_HISTORY_DAYS));
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
   const series = [];
