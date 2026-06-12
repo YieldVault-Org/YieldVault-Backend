@@ -9,6 +9,14 @@ const analyticsRoutes = require('./analyticsRoutes');
 
 const router = express.Router();
 
+// GET /api - lists available API resources for discoverability.
+router.get('/', (req, res) => {
+  res.json({
+    name: 'YieldVault API',
+    resources: ['/api/health', '/api/vaults', '/api/positions', '/api/analytics'],
+  });
+});
+
 // Mount feature routers under the /api namespace.
 router.use('/health', healthRoutes);
 router.use('/vaults', vaultRoutes);
