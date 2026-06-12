@@ -20,4 +20,24 @@ function getHealth(req, res) {
   });
 }
 
-module.exports = { getHealth };
+/**
+ * Liveness probe: reports only that the process is up and responding. Kept
+ * intentionally cheap so orchestrators can poll it frequently.
+ */
+function getLiveness(req, res) {
+  res.json({ status: 'alive', uptime: process.uptime() });
+}
+
+/**
+ * Readiness probe: reports whether the service is ready to serve traffic. The
+ * store must hold at least one seeded vault before we accept requests.
+ */
+function getReadiness(req, res) {
+  const ready = store.vaults.size > 0;
+  res.status(ready ? 200 : 503).json({
+    status: ready ? 'ready' : 'not-ready',
+    vaults: store.vaults.size,
+  });
+}
+
+module.exports = { getHealth, getLiveness, getReadiness };
