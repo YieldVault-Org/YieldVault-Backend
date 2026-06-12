@@ -14,6 +14,9 @@ const SEED_VAULTS = [
   { name: 'USDC Stable Yield', asset: 'USDC', apy: 0.052, totalAssets: 1250000 },
   { name: 'XLM Growth Vault', asset: 'XLM', apy: 0.094, totalAssets: 480000 },
   { name: 'EURC Conservative', asset: 'EURC', apy: 0.038, totalAssets: 720000 },
+  { name: 'USDC High Yield', asset: 'USDC', apy: 0.118, totalAssets: 340000 },
+  { name: 'XLM Stable Pool', asset: 'XLM', apy: 0.061, totalAssets: 910000 },
+  { name: 'EURC Growth Vault', asset: 'EURC', apy: 0.083, totalAssets: 215000 },
 ];
 
 function seed() {
