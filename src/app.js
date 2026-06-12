@@ -19,8 +19,14 @@ const errorHandler = require('./middleware/errorHandler');
 function createApp() {
   const app = express();
 
-  // Core middleware.
-  app.use(cors());
+  // Core middleware. CORS is restricted to the configured origin allowlist
+  // unless it contains '*', in which case any origin is permitted.
+  const allowAnyOrigin = config.corsOrigins.includes('*');
+  app.use(
+    cors({
+      origin: allowAnyOrigin ? true : config.corsOrigins,
+    })
+  );
   app.use(express.json());
   app.use(morgan(config.env === 'development' ? 'dev' : 'combined'));
   app.use(requestId);
