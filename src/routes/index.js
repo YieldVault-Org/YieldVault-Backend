@@ -3,6 +3,7 @@
 const express = require('express');
 
 const healthRoutes = require('./healthRoutes');
+const versionRoutes = require('./versionRoutes');
 const vaultRoutes = require('./vaultRoutes');
 const positionRoutes = require('./positionRoutes');
 const analyticsRoutes = require('./analyticsRoutes');
@@ -16,6 +17,7 @@ router.get('/', (req, res) => {
     name: 'YieldVault API',
     resources: [
       '/api/health',
+      '/api/version',
       '/api/vaults',
       '/api/positions',
       '/api/analytics',
@@ -26,6 +28,7 @@ router.get('/', (req, res) => {
 
 // Mount feature routers under the /api namespace.
 router.use('/health', healthRoutes);
+router.use('/version', versionRoutes);
 router.use('/vaults', vaultRoutes);
 router.use('/positions', positionRoutes);
 router.use('/analytics', analyticsRoutes);
