@@ -29,9 +29,15 @@ function getVaultApyHistory(req, res) {
   res.json({ vaultId: req.params.id, count: history.length, history });
 }
 
+function getVaultStats(req, res) {
+  const stats = vaultService.getVaultStats(req.params.id);
+  res.json({ stats });
+}
+
 module.exports = {
   listVaults,
   getVault,
   getVaultPositions,
   getVaultApyHistory,
+  getVaultStats,
 };

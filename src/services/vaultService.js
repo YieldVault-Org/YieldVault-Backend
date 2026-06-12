@@ -3,6 +3,7 @@
 const store = require('../store');
 const { notFound } = require('../utils/errors');
 const { pricePerShare } = require('../utils/math');
+const { projectedYield, effectiveAnnualRate } = require('../utils/finance');
 const yieldService = require('./yieldService');
 
 /**
@@ -60,6 +61,32 @@ function getApyHistory(id, days) {
   return yieldService.apyHistory(vault.apy, days);
 }
 
+/**
+ * Summary statistics for a single vault: liquidity, participation and a
+ * forward-looking yield projection on its current assets.
+ */
+function getVaultStats(id) {
+  const vault = getVaultRecord(id);
+  const positions = Array.from(store.positions.values()).filter(
+    (p) => p.vaultId === id
+  );
+  const depositors = new Set(positions.map((p) => p.user)).size;
+
+  return {
+    vaultId: vault.id,
+    name: vault.name,
+    asset: vault.asset,
+    apy: vault.apy,
+    effectiveApy: effectiveAnnualRate(vault.apy),
+    tvl: vault.totalAssets,
+    totalShares: vault.totalShares,
+    pricePerShare: pricePerShare(vault.totalAssets, vault.totalShares),
+    positionCount: positions.length,
+    depositors,
+    projectedAnnualYield: projectedYield(vault.totalAssets, vault.apy, 365),
+  };
+}
+
 module.exports = {
   syncVault,
   serialize,
@@ -67,4 +94,5 @@ module.exports = {
   getVaultRecord,
   getVault,
   getApyHistory,
+  getVaultStats,
 };
