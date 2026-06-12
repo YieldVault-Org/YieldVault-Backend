@@ -38,6 +38,53 @@ All routes are namespaced under `/api`.
 | GET    | `/api/positions?user=`     | List positions, optionally filtered by user  |
 | GET    | `/api/positions/:id`       | Position detail                              |
 
+## Example requests
+
+Deposit into a vault:
+
+```bash
+curl -X POST http://localhost:3000/api/positions/deposit \
+  -H 'Content-Type: application/json' \
+  -d '{"user":"GUSER...","vaultId":"vault_...","amount":1000}'
+```
+
+Withdraw shares:
+
+```bash
+curl -X POST http://localhost:3000/api/positions/withdraw \
+  -H 'Content-Type: application/json' \
+  -d '{"user":"GUSER...","vaultId":"vault_...","shares":500}'
+```
+
+List a user's positions:
+
+```bash
+curl 'http://localhost:3000/api/positions?user=GUSER...'
+```
+
+## Yield model
+
+Each vault tracks `totalAssets` (underlying tokens) and `totalShares`
+(ownership units). Price per share is `totalAssets / totalShares`. The mock
+yield engine grows `totalAssets` over time based on the vault APY while shares
+stay constant, so every position appreciates automatically. Accrual is applied
+lazily whenever a vault or position is read.
+
+## Project structure
+
+```
+src/
+  app.js            Express app wiring
+  server.js         Entrypoint
+  config/           Environment configuration
+  routes/           Express routers
+  controllers/      HTTP request handlers
+  services/         Business logic (vault, position, yield, analytics, stellar)
+  middleware/       Logger, validation, error handling
+  store/            In-memory store and seed data
+  utils/            Logger, ids, math, errors
+```
+
 ## License
 
 MIT
