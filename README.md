@@ -27,20 +27,27 @@ The server boots on `http://localhost:3000` and seeds a few demo vaults.
 
 All routes are namespaced under `/api`.
 
-| Method | Path                          | Description                                  |
-| ------ | ----------------------------- | -------------------------------------------- |
-| GET    | `/api/health`                 | Service liveness probe                       |
-| GET    | `/api/version`                | Service and API release metadata             |
-| GET    | `/api/vaults`                 | List vaults (TVL, APY, total shares)         |
-| GET    | `/api/vaults/:id`             | Vault detail                                 |
-| GET    | `/api/vaults/:id/positions`   | Positions held in a vault                    |
-| GET    | `/api/vaults/:id/apy-history` | Mock historical APY series (`?days=`)        |
-| GET    | `/api/analytics`              | Aggregate TVL and average APY                |
-| POST   | `/api/positions/deposit`      | Deposit assets into a vault                  |
-| POST   | `/api/positions/withdraw`     | Redeem shares from a vault                   |
-| GET    | `/api/positions?user=`        | List positions, optionally filtered by user  |
-| GET    | `/api/positions/:id`          | Position detail                              |
-| GET    | `/api/transactions`           | Mock transaction history (paginated)         |
+| Method | Path                            | Description                                  |
+| ------ | ------------------------------- | -------------------------------------------- |
+| GET    | `/api/health`                   | Full service health report                   |
+| GET    | `/api/health/live`              | Cheap liveness probe                         |
+| GET    | `/api/health/ready`             | Readiness probe (503 until seeded)           |
+| GET    | `/api/version`                  | Service and API release metadata             |
+| GET    | `/api/vaults`                   | List vaults (TVL, APY, total shares)         |
+| GET    | `/api/vaults/top`               | Top vaults by `?sort=tvl\|apy&limit=`        |
+| GET    | `/api/vaults/:id`               | Vault detail                                 |
+| GET    | `/api/vaults/:id/stats`         | Per-vault summary statistics                 |
+| GET    | `/api/vaults/:id/positions`     | Positions held in a vault                    |
+| GET    | `/api/vaults/:id/apy-history`   | Mock historical APY series (`?days=`)        |
+| GET    | `/api/vaults/:id/projection`    | Yield projection (`?amount=&days=`)          |
+| GET    | `/api/analytics`                | Aggregate TVL and average APY                |
+| GET    | `/api/analytics/tvl-history`    | Mock protocol TVL series (`?days=`)          |
+| POST   | `/api/positions/deposit`        | Deposit assets into a vault                  |
+| POST   | `/api/positions/withdraw`       | Redeem shares from a vault                   |
+| GET    | `/api/positions?user=`          | List positions, optionally filtered by user  |
+| GET    | `/api/positions/summary?user=`  | Aggregate portfolio totals for a user        |
+| GET    | `/api/positions/:id`            | Position detail                              |
+| GET    | `/api/transactions`             | Mock transaction history (paginated)         |
 
 ## Example requests
 
@@ -82,6 +89,13 @@ All `/api` routes are rate limited per client IP using a fixed window. Limits
 are configurable via `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX`. Each response
 carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
 headers; exceeding the limit returns `429` with a `Retry-After` header.
+
+## Security and limits
+
+Every response carries a conservative set of security headers
+(`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+`Content-Security-Policy`). Requests are aborted with `503` after
+`REQUEST_TIMEOUT_MS`, and JSON bodies larger than `BODY_LIMIT` are rejected.
 
 ## Configuration
 
@@ -128,7 +142,7 @@ src/
   services/         Business logic (vault, position, yield, analytics, stellar)
   middleware/       Logger, validation, error handling
   store/            In-memory store and seed data
-  utils/            Logger, ids, math, errors, pagination
+  utils/            Logger, ids, math, finance, fees, time, errors, pagination
 test/               Node test runner specs
 ```
 
