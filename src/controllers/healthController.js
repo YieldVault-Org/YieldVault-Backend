@@ -1,6 +1,7 @@
 'use strict';
 
 const config = require('../config');
+const store = require('../store');
 const { SERVICE_NAME, API_VERSION } = require('../utils/constants');
 
 /**
@@ -14,6 +15,7 @@ function getHealth(req, res) {
     env: config.env,
     network: config.stellar.network,
     uptime: process.uptime(),
+    store: store.stats(),
     timestamp: new Date().toISOString(),
   });
 }
