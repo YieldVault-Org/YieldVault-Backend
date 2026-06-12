@@ -3,6 +3,7 @@
 const store = require('../store');
 const { round } = require('../utils/math');
 const { MIN_HISTORY_DAYS, MAX_HISTORY_DAYS } = require('../utils/constants');
+const { dateDaysAgo } = require('../utils/time');
 const vaultService = require('./vaultService');
 
 /**
@@ -60,7 +61,6 @@ function getTvlHistory(days = 30) {
     .reduce((sum, v) => sum + v.totalAssets, 0);
 
   const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
   const series = [];
 
   for (let i = points - 1; i >= 0; i -= 1) {
@@ -68,7 +68,7 @@ function getTvlHistory(days = 30) {
     const progress = points === 1 ? 1 : (points - 1 - i) / (points - 1);
     const factor = 0.8 + 0.2 * progress;
     series.push({
-      date: new Date(now - i * dayMs).toISOString().slice(0, 10),
+      date: dateDaysAgo(i, now),
       tvl: round(current * factor),
     });
   }

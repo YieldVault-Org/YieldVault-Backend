@@ -2,6 +2,7 @@
 
 const { round } = require('../utils/math');
 const { MIN_HISTORY_DAYS, MAX_HISTORY_DAYS } = require('../utils/constants');
+const { dateDaysAgo } = require('../utils/time');
 
 /**
  * Mock yield-accrual engine.
@@ -52,14 +53,13 @@ function applyAccrual(vault, now = Date.now()) {
 function apyHistory(baseApy, days = 30) {
   const points = Math.max(MIN_HISTORY_DAYS, Math.min(days, MAX_HISTORY_DAYS));
   const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
   const series = [];
 
   for (let i = points - 1; i >= 0; i -= 1) {
     // Bounded deviation of up to ~15% of the base APY.
     const wobble = Math.sin(i / 3) * baseApy * 0.15;
     series.push({
-      date: new Date(now - i * dayMs).toISOString().slice(0, 10),
+      date: dateDaysAgo(i, now),
       apy: round(Math.max(0, baseApy + wobble)),
     });
   }
