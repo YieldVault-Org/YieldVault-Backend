@@ -41,6 +41,17 @@ function listVaults() {
     .map(serialize);
 }
 
+/**
+ * Return the top vaults ranked by a metric ('tvl' or 'apy'), highest first.
+ */
+function topVaults({ sort = 'tvl', limit = 5 } = {}) {
+  const key = sort === 'apy' ? 'apy' : 'tvl';
+  const count = Math.max(1, Math.min(Number(limit) || 5, 50));
+  return listVaults()
+    .sort((a, b) => b[key] - a[key])
+    .slice(0, count);
+}
+
 function getVaultRecord(id) {
   const vault = store.vaults.get(id);
   if (!vault) {
@@ -91,6 +102,7 @@ module.exports = {
   syncVault,
   serialize,
   listVaults,
+  topVaults,
   getVaultRecord,
   getVault,
   getApyHistory,

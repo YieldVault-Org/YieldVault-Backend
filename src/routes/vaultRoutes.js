@@ -9,6 +9,10 @@ const router = express.Router();
 // GET /api/vaults - list all vaults with TVL, APY and total shares
 router.get('/', asyncHandler(vaultController.listVaults));
 
+// GET /api/vaults/top?sort=tvl|apy&limit= - leaderboard of vaults
+// Registered before /:id so the literal path is not treated as an id.
+router.get('/top', asyncHandler(vaultController.getTopVaults));
+
 // GET /api/vaults/:id - vault detail
 router.get('/:id', asyncHandler(vaultController.getVault));
 

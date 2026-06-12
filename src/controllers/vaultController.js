@@ -16,6 +16,14 @@ function getVault(req, res) {
   res.json({ vault });
 }
 
+function getTopVaults(req, res) {
+  const vaults = vaultService.topVaults({
+    sort: req.query.sort,
+    limit: req.query.limit,
+  });
+  res.json({ count: vaults.length, sort: req.query.sort || 'tvl', vaults });
+}
+
 function getVaultPositions(req, res) {
   // Ensure the vault exists (throws 404 otherwise) before listing positions.
   vaultService.getVault(req.params.id);
@@ -36,6 +44,7 @@ function getVaultStats(req, res) {
 
 module.exports = {
   listVaults,
+  getTopVaults,
   getVault,
   getVaultPositions,
   getVaultApyHistory,
