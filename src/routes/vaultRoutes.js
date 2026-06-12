@@ -19,6 +19,9 @@ router.get('/:id', asyncHandler(vaultController.getVault));
 // GET /api/vaults/:id/stats - per-vault summary statistics
 router.get('/:id/stats', asyncHandler(vaultController.getVaultStats));
 
+// GET /api/vaults/:id/projection?amount=&days= - quote projected yield
+router.get('/:id/projection', asyncHandler(vaultController.getVaultProjection));
+
 // GET /api/vaults/:id/positions - positions held in a vault
 router.get('/:id/positions', asyncHandler(vaultController.getVaultPositions));
 

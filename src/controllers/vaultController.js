@@ -42,6 +42,13 @@ function getVaultStats(req, res) {
   res.json({ stats });
 }
 
+function getVaultProjection(req, res) {
+  const amount = parseFloat(req.query.amount) || 1000;
+  const days = parseInt(req.query.days, 10) || 365;
+  const projection = vaultService.projectDeposit(req.params.id, amount, days);
+  res.json({ projection });
+}
+
 module.exports = {
   listVaults,
   getTopVaults,
@@ -49,4 +56,5 @@ module.exports = {
   getVaultPositions,
   getVaultApyHistory,
   getVaultStats,
+  getVaultProjection,
 };

@@ -4,6 +4,8 @@ const store = require('../store');
 const { notFound } = require('../utils/errors');
 const { pricePerShare } = require('../utils/math');
 const { projectedYield, effectiveAnnualRate } = require('../utils/finance');
+const { performanceFee, netProfit } = require('../utils/fees');
+const { DEFAULT_PERFORMANCE_FEE_BPS } = require('../utils/constants');
 const yieldService = require('./yieldService');
 
 /**
@@ -98,6 +100,28 @@ function getVaultStats(id) {
   };
 }
 
+/**
+ * Project the yield a deposit of `amount` would earn in a vault over `days`,
+ * reporting both gross and net-of-performance-fee figures.
+ */
+function projectDeposit(id, amount, days = 365) {
+  const vault = getVaultRecord(id);
+  const principal = Number(amount) > 0 ? Number(amount) : 0;
+  const gross = projectedYield(principal, vault.apy, days);
+  const fee = performanceFee(gross, DEFAULT_PERFORMANCE_FEE_BPS);
+
+  return {
+    vaultId: vault.id,
+    apy: vault.apy,
+    principal,
+    days,
+    grossYield: gross,
+    performanceFee: fee,
+    netYield: netProfit(gross, DEFAULT_PERFORMANCE_FEE_BPS),
+    projectedValue: principal + gross - fee,
+  };
+}
+
 module.exports = {
   syncVault,
   serialize,
@@ -107,4 +131,5 @@ module.exports = {
   getVault,
   getApyHistory,
   getVaultStats,
+  projectDeposit,
 };
