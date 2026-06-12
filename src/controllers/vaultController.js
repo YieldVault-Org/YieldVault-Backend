@@ -1,6 +1,7 @@
 'use strict';
 
 const vaultService = require('../services/vaultService');
+const positionService = require('../services/positionService');
 
 /**
  * Vault controller: exposes vault listing and detail endpoints.
@@ -15,7 +16,15 @@ function getVault(req, res) {
   res.json({ vault });
 }
 
+function getVaultPositions(req, res) {
+  // Ensure the vault exists (throws 404 otherwise) before listing positions.
+  vaultService.getVault(req.params.id);
+  const positions = positionService.listByVault(req.params.id);
+  res.json({ count: positions.length, positions });
+}
+
 module.exports = {
   listVaults,
   getVault,
+  getVaultPositions,
 };
