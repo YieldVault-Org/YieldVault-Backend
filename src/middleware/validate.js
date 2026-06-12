@@ -35,6 +35,12 @@ function validateBody(schema) {
         if (rule.min !== undefined && num < rule.min) {
           errors.push(`${field} must be at least ${rule.min}`);
         }
+        if (rule.max !== undefined && num > rule.max) {
+          errors.push(`${field} must be at most ${rule.max}`);
+        }
+        if (rule.integer && !Number.isInteger(num)) {
+          errors.push(`${field} must be an integer`);
+        }
         data[field] = num;
       }
       if (rule.type === 'string' && typeof value !== 'string') {
