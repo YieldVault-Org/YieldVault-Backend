@@ -10,7 +10,8 @@ const router = express.Router();
 const depositSchema = {
   user: { type: 'string', required: true },
   vaultId: { type: 'string', required: true },
-  amount: { type: 'number', required: true, positive: true },
+  // Cap a single deposit to guard against absurd amounts in the mock.
+  amount: { type: 'number', required: true, positive: true, max: 1e12 },
 };
 
 const withdrawSchema = {
