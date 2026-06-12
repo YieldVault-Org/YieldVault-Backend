@@ -11,8 +11,9 @@ module.exports = function requestLogger(req, res, next) {
 
   res.on('finish', () => {
     const durationMs = Number(process.hrtime.bigint() - start) / 1e6;
+    const id = req.id ? ` [${req.id}]` : '';
     logger.info(
-      `${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs.toFixed(1)}ms`
+      `${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs.toFixed(1)}ms${id}`
     );
   });
 
