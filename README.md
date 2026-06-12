@@ -97,6 +97,8 @@ Configuration is read from environment variables (see `.env.example`):
 | `DEFAULT_APY`          | `0.08`                                  | Fallback vault APY (decimal)                 |
 | `RATE_LIMIT_WINDOW_MS` | `60000`                                 | Rate limit window in milliseconds            |
 | `RATE_LIMIT_MAX`       | `120`                                   | Max requests per window per IP               |
+| `REQUEST_TIMEOUT_MS`   | `15000`                                 | Abort requests slower than this (503)        |
+| `BODY_LIMIT`           | `64kb`                                  | Maximum accepted JSON request body size      |
 
 ## Testing
 
