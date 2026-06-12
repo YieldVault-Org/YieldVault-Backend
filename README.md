@@ -38,6 +38,7 @@ All routes are namespaced under `/api`.
 | POST   | `/api/positions/withdraw`  | Redeem shares from a vault                    |
 | GET    | `/api/positions?user=`     | List positions, optionally filtered by user  |
 | GET    | `/api/positions/:id`       | Position detail                              |
+| GET    | `/api/transactions?user=`  | Mock transaction history                     |
 
 ## Example requests
 
