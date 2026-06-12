@@ -9,4 +9,7 @@ const router = express.Router();
 // GET /api/analytics - aggregate TVL and average APY
 router.get('/', asyncHandler(analyticsController.getAnalytics));
 
+// GET /api/analytics/tvl-history?days= - mock protocol-wide TVL series
+router.get('/tvl-history', asyncHandler(analyticsController.getTvlHistory));
+
 module.exports = router;

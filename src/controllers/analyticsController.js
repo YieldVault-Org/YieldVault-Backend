@@ -10,4 +10,10 @@ function getAnalytics(req, res) {
   res.json({ analytics });
 }
 
-module.exports = { getAnalytics };
+function getTvlHistory(req, res) {
+  const days = parseInt(req.query.days, 10) || 30;
+  const history = analyticsService.getTvlHistory(days);
+  res.json({ count: history.length, history });
+}
+
+module.exports = { getAnalytics, getTvlHistory };

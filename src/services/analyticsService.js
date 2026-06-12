@@ -47,6 +47,35 @@ function getAnalytics() {
   };
 }
 
+/**
+ * Build a deterministic mock protocol-wide TVL history ending at the current
+ * total TVL. Earlier days are scaled down by a smooth growth curve so charts
+ * have a plausible upward trend without persisting real historical snapshots.
+ */
+function getTvlHistory(days = 30) {
+  const points = Math.max(1, Math.min(days, 365));
+  const current = Array.from(store.vaults.values())
+    .map(vaultService.syncVault)
+    .reduce((sum, v) => sum + v.totalAssets, 0);
+
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const series = [];
+
+  for (let i = points - 1; i >= 0; i -= 1) {
+    // Linearly ramp from ~80% of current TVL up to today's value.
+    const progress = points === 1 ? 1 : (points - 1 - i) / (points - 1);
+    const factor = 0.8 + 0.2 * progress;
+    series.push({
+      date: new Date(now - i * dayMs).toISOString().slice(0, 10),
+      tvl: round(current * factor),
+    });
+  }
+
+  return series;
+}
+
 module.exports = {
   getAnalytics,
+  getTvlHistory,
 };
