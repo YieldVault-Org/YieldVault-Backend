@@ -7,6 +7,7 @@ const morgan = require('morgan');
 const config = require('./config');
 const routes = require('./routes');
 const securityHeaders = require('./middleware/securityHeaders');
+const requestTimeout = require('./middleware/requestTimeout');
 const requestId = require('./middleware/requestId');
 const requestLogger = require('./middleware/requestLogger');
 const rateLimit = require('./middleware/rateLimit');
@@ -29,6 +30,7 @@ function createApp() {
     })
   );
   app.use(securityHeaders);
+  app.use(requestTimeout());
   app.use(express.json());
   app.use(morgan(config.env === 'development' ? 'dev' : 'combined'));
   app.use(requestId);

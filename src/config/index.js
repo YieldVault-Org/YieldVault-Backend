@@ -25,6 +25,8 @@ const config = {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 60000,
     max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 120,
   },
+  // Maximum time a request may run before it is aborted with a 503.
+  requestTimeoutMs: parseInt(process.env.REQUEST_TIMEOUT_MS, 10) || 15000,
 };
 
 module.exports = config;
