@@ -27,18 +27,20 @@ The server boots on `http://localhost:3000` and seeds a few demo vaults.
 
 All routes are namespaced under `/api`.
 
-| Method | Path                       | Description                                  |
-| ------ | -------------------------- | -------------------------------------------- |
-| GET    | `/api/health`              | Service liveness probe                       |
-| GET    | `/api/vaults`              | List vaults (TVL, APY, total shares)         |
-| GET    | `/api/vaults/:id`          | Vault detail                                 |
-| GET    | `/api/vaults/:id/positions`| Positions held in a vault                    |
-| GET    | `/api/analytics`           | Aggregate TVL and average APY                |
-| POST   | `/api/positions/deposit`   | Deposit assets into a vault                  |
-| POST   | `/api/positions/withdraw`  | Redeem shares from a vault                    |
-| GET    | `/api/positions?user=`     | List positions, optionally filtered by user  |
-| GET    | `/api/positions/:id`       | Position detail                              |
-| GET    | `/api/transactions?user=`  | Mock transaction history                     |
+| Method | Path                          | Description                                  |
+| ------ | ----------------------------- | -------------------------------------------- |
+| GET    | `/api/health`                 | Service liveness probe                       |
+| GET    | `/api/version`                | Service and API release metadata             |
+| GET    | `/api/vaults`                 | List vaults (TVL, APY, total shares)         |
+| GET    | `/api/vaults/:id`             | Vault detail                                 |
+| GET    | `/api/vaults/:id/positions`   | Positions held in a vault                    |
+| GET    | `/api/vaults/:id/apy-history` | Mock historical APY series (`?days=`)        |
+| GET    | `/api/analytics`              | Aggregate TVL and average APY                |
+| POST   | `/api/positions/deposit`      | Deposit assets into a vault                  |
+| POST   | `/api/positions/withdraw`     | Redeem shares from a vault                   |
+| GET    | `/api/positions?user=`        | List positions, optionally filtered by user  |
+| GET    | `/api/positions/:id`          | Position detail                              |
+| GET    | `/api/transactions`           | Mock transaction history (paginated)         |
 
 ## Example requests
 
@@ -64,6 +66,46 @@ List a user's positions:
 curl 'http://localhost:3000/api/positions?user=GUSER...'
 ```
 
+## Pagination
+
+List endpoints that can grow unbounded accept `limit` and `offset` query
+parameters. `limit` defaults to 20 and is capped at 100. Responses include a
+`pagination` object with `total`, `limit`, `offset` and `hasMore`:
+
+```bash
+curl 'http://localhost:3000/api/transactions?limit=10&offset=20'
+```
+
+## Rate limiting
+
+All `/api` routes are rate limited per client IP using a fixed window. Limits
+are configurable via `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX`. Each response
+carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
+headers; exceeding the limit returns `429` with a `Retry-After` header.
+
+## Configuration
+
+Configuration is read from environment variables (see `.env.example`):
+
+| Variable               | Default                                 | Description                                  |
+| ---------------------- | --------------------------------------- | -------------------------------------------- |
+| `PORT`                 | `3000`                                  | HTTP port                                    |
+| `NODE_ENV`             | `development`                           | Environment name                             |
+| `LOG_LEVEL`            | `info`                                  | Minimum log level                            |
+| `CORS_ORIGINS`         | `*`                                     | Comma-separated origin allowlist, or `*`     |
+| `STELLAR_NETWORK`      | `testnet`                               | Mock Stellar network                         |
+| `DEFAULT_APY`          | `0.08`                                  | Fallback vault APY (decimal)                 |
+| `RATE_LIMIT_WINDOW_MS` | `60000`                                 | Rate limit window in milliseconds            |
+| `RATE_LIMIT_MAX`       | `120`                                   | Max requests per window per IP               |
+
+## Testing
+
+Unit tests use Node's built-in test runner (no extra dependencies):
+
+```bash
+npm test
+```
+
 ## Yield model
 
 Each vault tracks `totalAssets` (underlying tokens) and `totalShares`
@@ -84,7 +126,8 @@ src/
   services/         Business logic (vault, position, yield, analytics, stellar)
   middleware/       Logger, validation, error handling
   store/            In-memory store and seed data
-  utils/            Logger, ids, math, errors
+  utils/            Logger, ids, math, errors, pagination
+test/               Node test runner specs
 ```
 
 ## License
