@@ -16,6 +16,10 @@ const config = {
     rpcUrl: process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org',
   },
   defaultApy: parseFloat(process.env.DEFAULT_APY) || 0.08,
+  rateLimit: {
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 60000,
+    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 120,
+  },
 };
 
 module.exports = config;

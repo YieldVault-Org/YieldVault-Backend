@@ -8,6 +8,7 @@ const config = require('./config');
 const routes = require('./routes');
 const requestId = require('./middleware/requestId');
 const requestLogger = require('./middleware/requestLogger');
+const rateLimit = require('./middleware/rateLimit');
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -25,7 +26,8 @@ function createApp() {
   app.use(requestId);
   app.use(requestLogger);
 
-  // API routes.
+  // API routes (rate limited).
+  app.use('/api', rateLimit());
   app.use('/api', routes);
 
   // Root welcome message.
