@@ -4,6 +4,7 @@ const store = require('./index');
 const config = require('../config');
 const logger = require('../utils/logger');
 const { newVaultId } = require('../utils/ids');
+const { SUPPORTED_ASSETS } = require('../utils/constants');
 
 /**
  * Seed the in-memory store with a handful of demo vaults so the API returns
@@ -22,6 +23,10 @@ function seed() {
 
   const now = Date.now();
   SEED_VAULTS.forEach((v) => {
+    if (!SUPPORTED_ASSETS.includes(v.asset)) {
+      logger.warn(`Skipping seed vault with unsupported asset: ${v.asset}`);
+      return;
+    }
     const id = newVaultId();
     store.vaults.set(id, {
       id,
