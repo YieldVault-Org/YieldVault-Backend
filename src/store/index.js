@@ -11,4 +11,15 @@ const store = {
   transactions: new Map(),
 };
 
+/**
+ * Return record counts for each collection. Useful for health/diagnostics.
+ */
+store.stats = function stats() {
+  return {
+    vaults: store.vaults.size,
+    positions: store.positions.size,
+    transactions: store.transactions.size,
+  };
+};
+
 module.exports = store;
