@@ -23,6 +23,9 @@ npm start
 
 The server boots on `http://localhost:3000` and seeds a few demo vaults.
 
+The in-memory store now includes a lightweight migration scaffold so schema
+changes can be added incrementally without changing the public API.
+
 ## API endpoints
 
 All routes are namespaced under `/api`.

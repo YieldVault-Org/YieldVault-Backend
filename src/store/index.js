@@ -1,5 +1,7 @@
 'use strict';
 
+const { applyMigrations } = require('./migrations');
+
 /**
  * In-memory data store. This stands in for a real database and holds all
  * application state in plain Maps keyed by id. State is lost on restart, which
@@ -10,6 +12,8 @@ const store = {
   positions: new Map(),
   transactions: new Map(),
 };
+
+applyMigrations(store);
 
 /**
  * Return record counts for each collection. Useful for health/diagnostics.
