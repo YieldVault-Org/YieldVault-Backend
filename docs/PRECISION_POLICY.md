@@ -171,3 +171,6 @@ the remediation focused on a specific policy boundary.
 
 This record is sufficient for reconciliation without exposing wallet secrets or
 internal implementation details.
+
+The reconciliation record should be retained alongside the normal transaction
+receipt and is safe to share with maintainers during review.
