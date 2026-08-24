@@ -9,6 +9,7 @@ const { round } = require('./math');
  */
 
 const BPS_DENOMINATOR = 10000;
+const MAX_FEE_BPS = BPS_DENOMINATOR;
 
 /**
  * Convert a basis-point value into a decimal rate (e.g. 50 bps -> 0.005).
@@ -16,6 +17,9 @@ const BPS_DENOMINATOR = 10000;
 function bpsToRate(bps) {
   if (!Number.isFinite(bps) || bps <= 0) {
     return 0;
+  }
+  if (bps > MAX_FEE_BPS) {
+    throw new RangeError(`fee cannot exceed ${MAX_FEE_BPS} basis points`);
   }
   return bps / BPS_DENOMINATOR;
 }
@@ -50,6 +54,7 @@ function netProfit(profit, bps) {
 
 module.exports = {
   BPS_DENOMINATOR,
+  MAX_FEE_BPS,
   bpsToRate,
   managementFee,
   performanceFee,
