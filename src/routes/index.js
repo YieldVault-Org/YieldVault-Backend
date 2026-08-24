@@ -8,6 +8,7 @@ const vaultRoutes = require('./vaultRoutes');
 const positionRoutes = require('./positionRoutes');
 const analyticsRoutes = require('./analyticsRoutes');
 const transactionRoutes = require('./transactionRoutes');
+const auditRoutes = require('./auditRoutes');
 
 const router = express.Router();
 
@@ -33,5 +34,6 @@ router.use('/vaults', vaultRoutes);
 router.use('/positions', positionRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/transactions', transactionRoutes);
+router.use('/audit', auditRoutes);
 
 module.exports = router;

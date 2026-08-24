@@ -12,6 +12,7 @@ test('store initializes with a versioned migration scaffold', () => {
   assert.ok(store.vaults instanceof Map);
   assert.ok(store.positions instanceof Map);
   assert.ok(store.transactions instanceof Map);
+  assert.ok(store.auditEvents instanceof Map);
 });
 
 test('applyMigrations is idempotent for the current schema version', () => {
