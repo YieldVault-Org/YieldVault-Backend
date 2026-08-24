@@ -141,3 +141,34 @@ A database-backed adapter should preserve the Map-facing service contract while
 adding a unique key on event ID, indexes for the three query filters, and an
 append-only permission model. It should write the event in the same transaction
 as the position state transition or use an equivalent transactional outbox.
+
+Until that adapter exists, the in-memory implementation is explicit about its
+restart boundary in health and deployment documentation. Operators must not
+interpret process-local history as a durable compliance archive.
+
+The deployment checklist should therefore include a persistence decision before
+production use:
+
+- choose the durable storage owner;
+- define retention and deletion approval;
+- configure access logging for audit reads;
+- verify the unique event key constraint;
+- test recovery after a worker restart;
+- test concurrent readers and writers;
+- verify redaction at the adapter boundary;
+- document the migration from the Map adapter;
+- monitor append failures separately from business failures; and
+- publish the supported schema version to consumers.
+
+These controls keep the audit feature useful during development while making
+the boundary to a production-grade durable implementation explicit.
+
+No consumer should treat a process restart as proof that no operation occurred.
+Use the transaction receipt and durable ledger records for final settlement.
+
+This distinction prevents a local observability gap from becoming a false
+financial conclusion.
+
+It also gives maintainers a clear handoff when replacing the mock store.
+
+The event model remains stable during that transition.
