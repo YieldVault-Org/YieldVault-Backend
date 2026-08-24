@@ -172,3 +172,5 @@ financial conclusion.
 It also gives maintainers a clear handoff when replacing the mock store.
 
 The event model remains stable during that transition.
+
+Reviewers can therefore compare schemas before and after the adapter rollout.
