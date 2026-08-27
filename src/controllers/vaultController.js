@@ -49,6 +49,14 @@ function getVaultProjection(req, res) {
   res.json({ projection });
 }
 
+function getDepositPreview(req, res) {
+  const preview = positionService.previewDeposit({
+    vaultId: req.params.id,
+    amount: Number(req.query.amount),
+  });
+  res.json({ preview });
+}
+
 module.exports = {
   listVaults,
   getTopVaults,
@@ -57,4 +65,5 @@ module.exports = {
   getVaultApyHistory,
   getVaultStats,
   getVaultProjection,
+  getDepositPreview,
 };

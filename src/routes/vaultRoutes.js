@@ -13,6 +13,9 @@ router.get('/', asyncHandler(vaultController.listVaults));
 // Registered before /:id so the literal path is not treated as an id.
 router.get('/top', asyncHandler(vaultController.getTopVaults));
 
+// GET /api/vaults/:id/deposit-preview?amount= - canonical share quote
+router.get('/:id/deposit-preview', asyncHandler(vaultController.getDepositPreview));
+
 // GET /api/vaults/:id - vault detail
 router.get('/:id', asyncHandler(vaultController.getVault));
 
