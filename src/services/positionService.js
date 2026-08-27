@@ -4,13 +4,15 @@ const store = require('../store');
 const { badRequest, notFound } = require('../utils/errors');
 const { newPositionId } = require('../utils/ids');
 const {
-  assetsToShares,
+  quoteAssetsToShares,
+  quoteSharesToAssets,
   sharesToAssets,
   round,
 } = require('../utils/math');
 const vaultService = require('./vaultService');
 const stellarService = require('./stellarService');
 const transactionLifecycle = require('./transactionLifecycleService');
+const auditService = require('./auditService');
 
 /**
  * Position service: deposit/withdraw flows and user position queries.
@@ -43,7 +45,15 @@ function serialize(position) {
 
 function deposit({ user, vaultId, amount, idempotencyKey, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
-  const shares = assetsToShares(amount, vault.totalAssets, vault.totalShares);
+  const before = { totalAssets: vault.totalAssets, totalShares: vault.totalShares };
+  let conversion;
+  try {
+    conversion = quoteAssetsToShares(amount, vault.totalAssets, vault.totalShares);
+  } catch (error) {
+    throw badRequest(error.message);
+  }
+  const shares = conversion.shares;
+  amount = conversion.assets;
 
   const tx = stellarService.submitInvocation('deposit', { user, vaultId, amount });
   transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
@@ -75,7 +85,17 @@ function deposit({ user, vaultId, amount, idempotencyKey, correlationId }) {
     store.positions.set(position.id, position);
   }
 
-  return { position: serialize(position), tx };
+  const result = { position: serialize(position), tx };
+  auditService.record({
+    actor: user,
+    action: 'vault.deposit',
+    target: vaultId,
+    correlationId,
+    outcome: 'success',
+    before,
+    after: { totalAssets: vault.totalAssets, totalShares: vault.totalShares, amount, shares },
+  });
+  return result;
 }
 
 function withdraw({ user, vaultId, shares, idempotencyKey, correlationId }) {
@@ -94,7 +114,15 @@ function withdraw({ user, vaultId, shares, idempotencyKey, correlationId }) {
     });
   }
 
-  const assets = sharesToAssets(shares, vault.totalAssets, vault.totalShares);
+  const before = { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares };
+  let conversion;
+  try {
+    conversion = quoteSharesToAssets(shares, vault.totalAssets, vault.totalShares);
+  } catch (error) {
+    throw badRequest(error.message);
+  }
+  shares = conversion.shares;
+  const assets = conversion.assets;
   const tx = stellarService.submitInvocation('withdraw', { user, vaultId, shares });
   transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
   store.transactions.set(tx.txHash, { ...tx, user, vaultId, shares, assets });
@@ -111,12 +139,33 @@ function withdraw({ user, vaultId, shares, idempotencyKey, correlationId }) {
   position.principal = position.shares <= 0 ? 0 : principalFraction;
   position.updatedAt = Date.now();
 
+  let result;
   if (position.shares <= 0) {
     store.positions.delete(position.id);
-    return { withdrawnAssets: assets, tx, position: null };
+    result = { withdrawnAssets: assets, tx, position: null };
+  } else {
+    result = { withdrawnAssets: assets, tx, position: serialize(position) };
   }
 
-  return { withdrawnAssets: assets, tx, position: serialize(position) };
+  auditService.record({
+    actor: user,
+    action: 'vault.withdraw',
+    target: vaultId,
+    correlationId,
+    outcome: 'success',
+    before,
+    after: { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares, assets },
+  });
+  return result;
+}
+
+function previewDeposit({ vaultId, amount }) {
+  const vault = vaultService.getVaultRecord(vaultId);
+  try {
+    return { vaultId, ...quoteAssetsToShares(amount, vault.totalAssets, vault.totalShares) };
+  } catch (error) {
+    throw badRequest(error.message);
+  }
 }
 
 function getPosition(id) {
@@ -168,6 +217,7 @@ function getUserSummary(user) {
 module.exports = {
   serialize,
   deposit,
+  previewDeposit,
   withdraw,
   getPosition,
   listPositions,

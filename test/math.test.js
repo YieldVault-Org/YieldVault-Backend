@@ -8,6 +8,8 @@ const {
   assetsToShares,
   sharesToAssets,
   pricePerShare,
+  canonicalizeAmount,
+  quoteAssetsToShares,
 } = require('../src/utils/math');
 
 test('round trims floating point dust to six decimals', () => {
@@ -38,4 +40,21 @@ test('sharesToAssets returns 0 when there are no shares', () => {
 test('pricePerShare defaults to 1 for an empty vault', () => {
   assert.equal(pricePerShare(0, 0), 1);
   assert.equal(pricePerShare(1500, 1000), 1.5);
+});
+
+test('canonicalizeAmount rejects unsupported precision and unsafe ranges', () => {
+  assert.equal(canonicalizeAmount(1.123456), 1.123456);
+  assert.throws(() => canonicalizeAmount(1.1234567), /at most 6 decimal places/);
+  assert.throws(() => canonicalizeAmount(1e12 + 1), /must not exceed/);
+});
+
+test('conversion quote exposes the same canonical result used by execution', () => {
+  const quote = quoteAssetsToShares(200, 2000, 1000);
+  assert.equal(quote.assets, 200);
+  assert.equal(quote.shares, 100);
+  assert.deepEqual(quote.policy, {
+    decimalPlaces: 6,
+    minimumUnit: 0.000001,
+    rounding: 'nearest',
+  });
 });

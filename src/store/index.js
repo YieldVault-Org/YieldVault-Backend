@@ -12,6 +12,7 @@ const store = {
   positions: new Map(),
   transactions: new Map(),
   transactionStates: new Map(),
+  auditEvents: new Map(),
 };
 
 applyMigrations(store);
