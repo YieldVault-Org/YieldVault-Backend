@@ -26,6 +26,14 @@ The server boots on `http://localhost:3000` and seeds a few demo vaults.
 The in-memory store now includes a lightweight migration scaffold so schema
 changes can be added incrementally without changing the public API.
 
+## API contracts
+
+Response contracts are versioned under `src/contracts`. The dependency-free
+validator checks required fields, enums, numeric precision, pagination bounds,
+and unknown fields. CI can run `npm run validate:contracts` to validate the
+deterministic success, pending, validation, authorization, provider-failure,
+and paginated-transaction fixtures without a live chain.
+
 ## API endpoints
 
 All routes are namespaced under `/api`.
