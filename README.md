@@ -60,6 +60,7 @@ All routes are namespaced under `/api`.
 | GET    | `/api/positions/summary?user=`  | Aggregate portfolio totals for a user        |
 | GET    | `/api/positions/:id`            | Position detail                              |
 | GET    | `/api/transactions`             | Mock transaction history (paginated)         |
+| GET    | `/api/audit`                    | Authorized structured vault audit history    |
 
 ## Example requests
 
@@ -108,6 +109,8 @@ Every response carries a conservative set of security headers
 (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
 `Content-Security-Policy`). Requests are aborted with `503` after
 `REQUEST_TIMEOUT_MS`, and JSON bodies larger than `BODY_LIMIT` are rejected.
+Audit history requires `X-Audit-Role: admin` or `X-Audit-Role: auditor` and
+supports `actor`, `target`, `correlationId`, `limit`, and `offset` filters.
 
 ## Configuration
 

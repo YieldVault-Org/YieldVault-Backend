@@ -11,6 +11,7 @@ const store = {
   vaults: new Map(),
   positions: new Map(),
   transactions: new Map(),
+  auditEvents: new Map(),
 };
 
 applyMigrations(store);

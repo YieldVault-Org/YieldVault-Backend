@@ -8,14 +8,14 @@ const { validateResponse } = require('../services/contractValidationService');
  */
 function deposit(req, res) {
   const { user, vaultId, amount } = req.body;
-  const result = positionService.deposit({ user, vaultId, amount });
+  const result = positionService.deposit({ user, vaultId, amount, correlationId: req.id });
   validateResponse('depositSuccess', result);
   res.status(201).json(result);
 }
 
 function withdraw(req, res) {
   const { user, vaultId, shares } = req.body;
-  const result = positionService.withdraw({ user, vaultId, shares });
+  const result = positionService.withdraw({ user, vaultId, shares, correlationId: req.id });
   validateResponse('withdrawSuccess', result);
   res.json(result);
 }

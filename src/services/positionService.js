@@ -10,6 +10,7 @@ const {
 } = require('../utils/math');
 const vaultService = require('./vaultService');
 const stellarService = require('./stellarService');
+const auditService = require('./auditService');
 
 /**
  * Position service: deposit/withdraw flows and user position queries.
@@ -40,8 +41,9 @@ function serialize(position) {
   };
 }
 
-function deposit({ user, vaultId, amount }) {
+function deposit({ user, vaultId, amount, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
+  const before = { totalAssets: vault.totalAssets, totalShares: vault.totalShares };
   let conversion;
   try {
     conversion = quoteAssetsToShares(amount, vault.totalAssets, vault.totalShares);
@@ -80,10 +82,20 @@ function deposit({ user, vaultId, amount }) {
     store.positions.set(position.id, position);
   }
 
-  return { position: serialize(position), tx, conversion };
+  const result = { position: serialize(position), tx };
+  auditService.record({
+    actor: user,
+    action: 'vault.deposit',
+    target: vaultId,
+    correlationId,
+    outcome: 'success',
+    before,
+    after: { totalAssets: vault.totalAssets, totalShares: vault.totalShares, amount, shares },
+  });
+  return result;
 }
 
-function withdraw({ user, vaultId, shares }) {
+function withdraw({ user, vaultId, shares, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
   const position = Array.from(store.positions.values()).find(
     (p) => p.user === user && p.vaultId === vaultId
@@ -99,6 +111,7 @@ function withdraw({ user, vaultId, shares }) {
     });
   }
 
+  const before = { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares };
   let conversion;
   try {
     conversion = quoteSharesToAssets(shares, vault.totalAssets, vault.totalShares);
@@ -122,12 +135,24 @@ function withdraw({ user, vaultId, shares }) {
   position.principal = position.shares <= 0 ? 0 : principalFraction;
   position.updatedAt = Date.now();
 
+  let result;
   if (position.shares <= 0) {
     store.positions.delete(position.id);
-    return { withdrawnAssets: assets, tx, position: null, conversion };
+    result = { withdrawnAssets: assets, tx, position: null };
+  } else {
+    result = { withdrawnAssets: assets, tx, position: serialize(position) };
   }
 
-  return { withdrawnAssets: assets, tx, position: serialize(position), conversion };
+  auditService.record({
+    actor: user,
+    action: 'vault.withdraw',
+    target: vaultId,
+    correlationId,
+    outcome: 'success',
+    before,
+    after: { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares, assets },
+  });
+  return result;
 }
 
 function previewDeposit({ vaultId, amount }) {
