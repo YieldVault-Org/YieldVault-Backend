@@ -7,15 +7,15 @@ const { validateResponse } = require('../services/contractValidationService');
  * Position controller: deposit, withdraw and position queries.
  */
 function deposit(req, res) {
-  const { user, vaultId, amount } = req.body;
-  const result = positionService.deposit({ user, vaultId, amount, correlationId: req.id });
+  const { user, vaultId, amount, idempotencyKey } = req.body;
+  const result = positionService.deposit({ user, vaultId, amount, idempotencyKey, correlationId: req.id });
   validateResponse('depositSuccess', result);
   res.status(201).json(result);
 }
 
 function withdraw(req, res) {
-  const { user, vaultId, shares } = req.body;
-  const result = positionService.withdraw({ user, vaultId, shares, correlationId: req.id });
+  const { user, vaultId, shares, idempotencyKey } = req.body;
+  const result = positionService.withdraw({ user, vaultId, shares, idempotencyKey, correlationId: req.id });
   validateResponse('withdrawSuccess', result);
   res.json(result);
 }

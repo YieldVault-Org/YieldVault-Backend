@@ -12,6 +12,8 @@ test('store initializes with a versioned migration scaffold', () => {
   assert.ok(store.vaults instanceof Map);
   assert.ok(store.positions instanceof Map);
   assert.ok(store.transactions instanceof Map);
+  assert.ok(store.transactionStates instanceof Map);
+  assert.equal(store.stats().transactionStates, store.transactionStates.size);
   assert.ok(store.auditEvents instanceof Map);
 });
 

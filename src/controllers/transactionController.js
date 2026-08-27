@@ -15,4 +15,8 @@ function listTransactions(req, res) {
   res.json(response);
 }
 
-module.exports = { listTransactions };
+function getTransactionStatus(req, res) {
+  res.json({ transaction: transactionService.getTransactionStatus(req.params.txHash) });
+}
+
+module.exports = { getTransactionStatus, listTransactions };

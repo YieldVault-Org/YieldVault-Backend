@@ -60,6 +60,17 @@ All routes are namespaced under `/api`.
 | GET    | `/api/positions/summary?user=`  | Aggregate portfolio totals for a user        |
 | GET    | `/api/positions/:id`            | Position detail                              |
 | GET    | `/api/transactions`             | Mock transaction history (paginated)         |
+| GET    | `/api/transactions/:txHash`     | Durable transaction lifecycle status        |
+
+Transaction orchestration uses a durable in-memory lifecycle record with
+`pending`, `submitted`, `confirmed`, `failed`, and `unknown` states. A caller
+must provide an idempotency key; provider transaction identifiers are bound to
+the first submission, unknown outcomes use bounded exponential retry, and
+terminal states are never submitted again. `transactionLifecycleService` is
+provider-agnostic so fault-injection tests can run without Soroban access.
+Mutation requests may include an `idempotencyKey` (8–128 safe characters),
+and the status endpoint exposes provider transaction identity, attempt counts,
+retry timing, correlation id, and safe terminal errors.
 | GET    | `/api/audit`                    | Authorized structured vault audit history    |
 
 ## Example requests

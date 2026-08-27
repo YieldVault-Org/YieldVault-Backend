@@ -6,10 +6,12 @@ const { newPositionId } = require('../utils/ids');
 const {
   quoteAssetsToShares,
   quoteSharesToAssets,
+  sharesToAssets,
   round,
 } = require('../utils/math');
 const vaultService = require('./vaultService');
 const stellarService = require('./stellarService');
+const transactionLifecycle = require('./transactionLifecycleService');
 const auditService = require('./auditService');
 
 /**
@@ -41,7 +43,7 @@ function serialize(position) {
   };
 }
 
-function deposit({ user, vaultId, amount, correlationId }) {
+function deposit({ user, vaultId, amount, idempotencyKey, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
   const before = { totalAssets: vault.totalAssets, totalShares: vault.totalShares };
   let conversion;
@@ -54,6 +56,7 @@ function deposit({ user, vaultId, amount, correlationId }) {
   amount = conversion.assets;
 
   const tx = stellarService.submitInvocation('deposit', { user, vaultId, amount });
+  transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
   store.transactions.set(tx.txHash, { ...tx, user, vaultId, amount });
 
   vault.totalAssets = round(vault.totalAssets + amount);
@@ -95,7 +98,7 @@ function deposit({ user, vaultId, amount, correlationId }) {
   return result;
 }
 
-function withdraw({ user, vaultId, shares, correlationId }) {
+function withdraw({ user, vaultId, shares, idempotencyKey, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
   const position = Array.from(store.positions.values()).find(
     (p) => p.user === user && p.vaultId === vaultId
@@ -121,6 +124,7 @@ function withdraw({ user, vaultId, shares, correlationId }) {
   shares = conversion.shares;
   const assets = conversion.assets;
   const tx = stellarService.submitInvocation('withdraw', { user, vaultId, shares });
+  transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
   store.transactions.set(tx.txHash, { ...tx, user, vaultId, shares, assets });
 
   vault.totalAssets = round(vault.totalAssets - assets);
