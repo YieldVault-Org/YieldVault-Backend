@@ -26,6 +26,14 @@ The server boots on `http://localhost:3000` and seeds a few demo vaults.
 The in-memory store now includes a lightweight migration scaffold so schema
 changes can be added incrementally without changing the public API.
 
+## API contracts
+
+Response contracts are versioned under `src/contracts`. The dependency-free
+validator checks required fields, enums, numeric precision, pagination bounds,
+and unknown fields. CI can run `npm run validate:contracts` to validate the
+deterministic success, pending, validation, authorization, provider-failure,
+and paginated-transaction fixtures without a live chain.
+
 ## API endpoints
 
 All routes are namespaced under `/api`.
@@ -45,6 +53,7 @@ All routes are namespaced under `/api`.
 | GET    | `/api/vaults/:id/projection`    | Yield projection (`?amount=&days=`)          |
 | GET    | `/api/analytics`                | Aggregate TVL and average APY                |
 | GET    | `/api/analytics/tvl-history`    | Mock protocol TVL series (`?days=`)          |
+| GET    | `/api/vaults/:id/deposit-preview` | Canonical deposit/share quote (`?amount=`) |
 | POST   | `/api/positions/deposit`        | Deposit assets into a vault                  |
 | POST   | `/api/positions/withdraw`       | Redeem shares from a vault                   |
 | GET    | `/api/positions?user=`          | List positions, optionally filtered by user  |
@@ -135,6 +144,13 @@ Each vault tracks `totalAssets` (underlying tokens) and `totalShares`
 yield engine grows `totalAssets` over time based on the vault APY while shares
 stay constant, so every position appreciates automatically. Accrual is applied
 lazily whenever a vault or position is read.
+
+## Amount and rounding policy
+
+Asset and share amounts use six decimal places (`0.000001`) and round to
+nearest at that precision. Inputs above `1e12` or with smaller units are
+rejected. Deposit previews and execution share the same conversion helper and
+return the policy metadata so clients can explain boundary results.
 
 ## Project structure
 

@@ -2,13 +2,16 @@
 
 const vaultService = require('../services/vaultService');
 const positionService = require('../services/positionService');
+const { validateResponse } = require('../services/contractValidationService');
 
 /**
  * Vault controller: exposes vault listing and detail endpoints.
  */
 function listVaults(req, res) {
   const vaults = vaultService.listVaults();
-  res.json({ count: vaults.length, vaults });
+  const response = { count: vaults.length, vaults };
+  validateResponse('vaultList', response);
+  res.json(response);
 }
 
 function getVault(req, res) {
@@ -49,6 +52,14 @@ function getVaultProjection(req, res) {
   res.json({ projection });
 }
 
+function getDepositPreview(req, res) {
+  const preview = positionService.previewDeposit({
+    vaultId: req.params.id,
+    amount: Number(req.query.amount),
+  });
+  res.json({ preview });
+}
+
 module.exports = {
   listVaults,
   getTopVaults,
@@ -57,4 +68,5 @@ module.exports = {
   getVaultApyHistory,
   getVaultStats,
   getVaultProjection,
+  getDepositPreview,
 };

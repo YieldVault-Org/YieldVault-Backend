@@ -17,6 +17,10 @@ test('bpsToRate converts basis points to a decimal rate', () => {
   assert.equal(bpsToRate(-5), 0);
 });
 
+test('bpsToRate rejects fees above the 100 percent cap', () => {
+  assert.throws(() => bpsToRate(10001), /cannot exceed/);
+});
+
 test('managementFee pro-rates the annual fee for a period', () => {
   // 200 bps (2%) on 1000 over a full year is 20.
   assert.equal(managementFee(1000, 200, 365), 20);

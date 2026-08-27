@@ -4,8 +4,8 @@ const store = require('../store');
 const { badRequest, notFound } = require('../utils/errors');
 const { newPositionId } = require('../utils/ids');
 const {
-  assetsToShares,
-  sharesToAssets,
+  quoteAssetsToShares,
+  quoteSharesToAssets,
   round,
 } = require('../utils/math');
 const vaultService = require('./vaultService');
@@ -44,7 +44,14 @@ function serialize(position) {
 function deposit({ user, vaultId, amount, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
   const before = { totalAssets: vault.totalAssets, totalShares: vault.totalShares };
-  const shares = assetsToShares(amount, vault.totalAssets, vault.totalShares);
+  let conversion;
+  try {
+    conversion = quoteAssetsToShares(amount, vault.totalAssets, vault.totalShares);
+  } catch (error) {
+    throw badRequest(error.message);
+  }
+  const shares = conversion.shares;
+  amount = conversion.assets;
 
   const tx = stellarService.submitInvocation('deposit', { user, vaultId, amount });
   store.transactions.set(tx.txHash, { ...tx, user, vaultId, amount });
@@ -105,7 +112,14 @@ function withdraw({ user, vaultId, shares, correlationId }) {
   }
 
   const before = { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares };
-  const assets = sharesToAssets(shares, vault.totalAssets, vault.totalShares);
+  let conversion;
+  try {
+    conversion = quoteSharesToAssets(shares, vault.totalAssets, vault.totalShares);
+  } catch (error) {
+    throw badRequest(error.message);
+  }
+  shares = conversion.shares;
+  const assets = conversion.assets;
   const tx = stellarService.submitInvocation('withdraw', { user, vaultId, shares });
   store.transactions.set(tx.txHash, { ...tx, user, vaultId, shares, assets });
 
@@ -139,6 +153,15 @@ function withdraw({ user, vaultId, shares, correlationId }) {
     after: { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares, assets },
   });
   return result;
+}
+
+function previewDeposit({ vaultId, amount }) {
+  const vault = vaultService.getVaultRecord(vaultId);
+  try {
+    return { vaultId, ...quoteAssetsToShares(amount, vault.totalAssets, vault.totalShares) };
+  } catch (error) {
+    throw badRequest(error.message);
+  }
 }
 
 function getPosition(id) {
@@ -190,6 +213,7 @@ function getUserSummary(user) {
 module.exports = {
   serialize,
   deposit,
+  previewDeposit,
   withdraw,
   getPosition,
   listPositions,
