@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "validate:contracts": "node scripts/validate-contract-fixtures.js"
   },
   "keywords": [
     "soroban",
