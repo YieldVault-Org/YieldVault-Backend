@@ -32,6 +32,10 @@ const MIGRATIONS = [
         store.transactions = new Map();
       }
 
+      if (!store.transactionStates || typeof store.transactionStates.set !== 'function') {
+        store.transactionStates = new Map();
+      }
+
       if (!store.meta.migrations.includes(1)) {
         store.meta.migrations.push(1);
       }
@@ -64,6 +68,10 @@ function applyMigrations(store, targetVersion = STORE_VERSION) {
 
   if (!store.transactions || typeof store.transactions.set !== 'function') {
     store.transactions = new Map();
+  }
+
+  if (!store.transactionStates || typeof store.transactionStates.set !== 'function') {
+    store.transactionStates = new Map();
   }
 
   let currentVersion = Number(store.meta.version || 0);

@@ -32,6 +32,12 @@ const withdrawSchema = {
   shares: { type: 'number', required: true, positive: true },
 };
 
+const idempotencyRule = {
+  type: 'string', minLength: 8, maxLength: 128, pattern: /^[A-Za-z0-9._:-]+$/,
+};
+depositSchema.idempotencyKey = idempotencyRule;
+withdrawSchema.idempotencyKey = idempotencyRule;
+
 // POST /api/positions/deposit - deposit assets into a vault
 router.post(
   '/deposit',

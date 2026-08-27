@@ -11,6 +11,7 @@ const store = {
   vaults: new Map(),
   positions: new Map(),
   transactions: new Map(),
+  transactionStates: new Map(),
 };
 
 applyMigrations(store);
@@ -23,6 +24,7 @@ store.stats = function stats() {
     vaults: store.vaults.size,
     positions: store.positions.size,
     transactions: store.transactions.size,
+    transactionStates: store.transactionStates.size,
   };
 };
 

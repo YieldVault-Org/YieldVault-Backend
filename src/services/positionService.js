@@ -10,6 +10,7 @@ const {
 } = require('../utils/math');
 const vaultService = require('./vaultService');
 const stellarService = require('./stellarService');
+const transactionLifecycle = require('./transactionLifecycleService');
 
 /**
  * Position service: deposit/withdraw flows and user position queries.
@@ -40,11 +41,12 @@ function serialize(position) {
   };
 }
 
-function deposit({ user, vaultId, amount }) {
+function deposit({ user, vaultId, amount, idempotencyKey, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
   const shares = assetsToShares(amount, vault.totalAssets, vault.totalShares);
 
   const tx = stellarService.submitInvocation('deposit', { user, vaultId, amount });
+  transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
   store.transactions.set(tx.txHash, { ...tx, user, vaultId, amount });
 
   vault.totalAssets = round(vault.totalAssets + amount);
@@ -76,7 +78,7 @@ function deposit({ user, vaultId, amount }) {
   return { position: serialize(position), tx };
 }
 
-function withdraw({ user, vaultId, shares }) {
+function withdraw({ user, vaultId, shares, idempotencyKey, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
   const position = Array.from(store.positions.values()).find(
     (p) => p.user === user && p.vaultId === vaultId
@@ -94,6 +96,7 @@ function withdraw({ user, vaultId, shares }) {
 
   const assets = sharesToAssets(shares, vault.totalAssets, vault.totalShares);
   const tx = stellarService.submitInvocation('withdraw', { user, vaultId, shares });
+  transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
   store.transactions.set(tx.txHash, { ...tx, user, vaultId, shares, assets });
 
   vault.totalAssets = round(vault.totalAssets - assets);
