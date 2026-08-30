@@ -33,7 +33,7 @@ const withdrawSchema = {
 };
 
 const idempotencyRule = {
-  type: 'string', minLength: 8, maxLength: 128, pattern: /^[A-Za-z0-9._:-]+$/,
+  type: 'string', required: true, minLength: 8, maxLength: 128, pattern: /^[A-Za-z0-9._:-]+$/,
 };
 depositSchema.idempotencyKey = idempotencyRule;
 withdrawSchema.idempotencyKey = idempotencyRule;

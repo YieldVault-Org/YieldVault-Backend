@@ -13,6 +13,7 @@ const store = {
   transactions: new Map(),
   transactionStates: new Map(),
   auditEvents: new Map(),
+  idempotencyRecords: new Map(),
 };
 
 applyMigrations(store);
@@ -26,6 +27,7 @@ store.stats = function stats() {
     positions: store.positions.size,
     transactions: store.transactions.size,
     transactionStates: store.transactionStates.size,
+    idempotencyRecords: store.idempotencyRecords.size,
   };
 };
 
