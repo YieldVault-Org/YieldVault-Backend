@@ -13,6 +13,7 @@ const vaultService = require('./vaultService');
 const stellarService = require('./stellarService');
 const transactionLifecycle = require('./transactionLifecycleService');
 const auditService = require('./auditService');
+const idempotencyService = require('./idempotencyService');
 
 /**
  * Position service: deposit/withdraw flows and user position queries.
@@ -44,6 +45,20 @@ function serialize(position) {
 }
 
 function deposit({ user, vaultId, amount, idempotencyKey, correlationId }) {
+  if (!idempotencyKey) return depositMutation({ user, vaultId, amount, idempotencyKey, correlationId });
+  const started = idempotencyService.begin({ user, operation: 'deposit', key: idempotencyKey, payload: { user, vaultId, amount } });
+  if (started.replay) return started.result;
+  try {
+    const result = depositMutation({ user, vaultId, amount, idempotencyKey, correlationId });
+    idempotencyService.complete(started.scopedKey, result);
+    return result;
+  } catch (error) {
+    idempotencyService.abort(started.scopedKey);
+    throw error;
+  }
+}
+
+function depositMutation({ user, vaultId, amount, idempotencyKey, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
   const before = { totalAssets: vault.totalAssets, totalShares: vault.totalShares };
   let conversion;
@@ -99,6 +114,20 @@ function deposit({ user, vaultId, amount, idempotencyKey, correlationId }) {
 }
 
 function withdraw({ user, vaultId, shares, idempotencyKey, correlationId }) {
+  if (!idempotencyKey) return withdrawMutation({ user, vaultId, shares, idempotencyKey, correlationId });
+  const started = idempotencyService.begin({ user, operation: 'withdraw', key: idempotencyKey, payload: { user, vaultId, shares } });
+  if (started.replay) return started.result;
+  try {
+    const result = withdrawMutation({ user, vaultId, shares, idempotencyKey, correlationId });
+    idempotencyService.complete(started.scopedKey, result);
+    return result;
+  } catch (error) {
+    idempotencyService.abort(started.scopedKey);
+    throw error;
+  }
+}
+
+function withdrawMutation({ user, vaultId, shares, idempotencyKey, correlationId }) {
   const vault = vaultService.getVaultRecord(vaultId);
   const position = Array.from(store.positions.values()).find(
     (p) => p.user === user && p.vaultId === vaultId
