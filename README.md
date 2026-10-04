@@ -42,7 +42,7 @@ All routes are namespaced under `/api`.
 | ------ | ------------------------------- | -------------------------------------------- |
 | GET    | `/api/health`                   | Full service health report                   |
 | GET    | `/api/health/live`              | Cheap liveness probe                         |
-| GET    | `/api/health/ready`             | Readiness probe (503 until seeded)           |
+| GET    | `/api/health/ready`             | Dependency-aware readiness (503 when degraded) |
 | GET    | `/api/version`                  | Service and API release metadata             |
 | GET    | `/api/vaults`                   | List vaults (TVL, APY, total shares)         |
 | GET    | `/api/vaults/top`               | Top vaults by `?sort=tvl\|apy&limit=`        |
@@ -109,10 +109,39 @@ curl 'http://localhost:3000/api/transactions?limit=10&offset=20'
 
 ## Rate limiting
 
-All `/api` routes are rate limited per client IP using a fixed window. Limits
-are configurable via `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX`. Each response
-carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
-headers; exceeding the limit returns `429` with a `Retry-After` header.
+API routes are rate limited per client IP using a fixed window. Limits are
+configurable via `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX`. Rate-limited
+responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining` and
+`X-RateLimit-Reset` headers; exceeding the limit returns `429` with a
+`Retry-After` header.
+
+`GET` and `HEAD /api/health/live` are exempt from this quota. They report only
+process liveness, remain available when API traffic or failed readiness probes
+exhaust the quota, and do not consume another API request's budget. Common
+security headers, request IDs, logging, and request limits still apply.
+Readiness (`/api/health/ready`) and all other API routes retain their rate
+limits, so dependency probes remain subject to the ordinary request budget.
+
+Concurrent and repeated readiness requests share only unfinished work for the
+same dependency and adapter. Every request keeps its own timeout; timed-out
+callers detach, and completed results are discarded so the next request checks
+the dependency again. Replacing the Stellar adapter starts a fresh operation.
+
+This bounds outstanding work for an unchanged adapter without cancelling
+arbitrary Promises. A never-settling adapter stays not-ready until its operation
+settles or the adapter is replaced. Real network clients still need their own
+transport timeouts or cancellation; synchronous blocking work cannot be
+interrupted by the readiness timer.
+
+[Readiness validation on October 4, 2026](https://github.com/woahwhattheheck/YieldVault-Backend-1/actions/runs/37201653758)
+used Node 22.23.3 and pinned source `ca97a55e8c7280201b456c18f7a25e7bd4ea8f4f`.
+Forty timed-out HTTP readiness requests made 40 provider calls on the prior
+service and one with this repair. Liveness remained available, settlement
+restored readiness, and short and long callers retained independent deadlines.
+The same two new regressions failed on the prior service; the complete existing
+`npm test` selection plus those regressions then passed (135 passed, no failures,
+skips or cancellations). The run uses controlled local adapter promises, not a
+live Stellar provider.
 
 ## Security and limits
 
