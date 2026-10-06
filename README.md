@@ -34,6 +34,12 @@ and unknown fields. CI can run `npm run validate:contracts` to validate the
 deterministic success, pending, validation, authorization, provider-failure,
 and paginated-transaction fixtures without a live chain.
 
+Mutation and transaction-history responses map the mock provider's `SUCCESS`
+receipt to the v1 `confirmed` state and omit its provider-only `network` and
+`ledger` fields. Stored receipts retain those original values, and lifecycle
+registration is unchanged. The response validator still rejects other
+undocumented fields, unsupported states, and invalid amounts.
+
 ## API endpoints
 
 All routes are namespaced under `/api`.
@@ -53,6 +59,7 @@ All routes are namespaced under `/api`.
 | GET    | `/api/vaults/:id/projection`    | Yield projection (`?amount=&days=`)          |
 | GET    | `/api/analytics`                | Aggregate TVL and average APY                |
 | GET    | `/api/analytics/tvl-history`    | Mock protocol TVL series (`?days=`)          |
+| GET    | `/api/analytics/history`        | Cursor-paginated vault ledger history        |
 | GET    | `/api/vaults/:id/deposit-preview` | Canonical deposit/share quote (`?amount=`) |
 | POST   | `/api/positions/deposit`        | Deposit assets into a vault                  |
 | POST   | `/api/positions/withdraw`       | Redeem shares from a vault                   |
@@ -98,6 +105,15 @@ curl 'http://localhost:3000/api/positions?user=GUSER...'
 ```
 
 ## Pagination
+
+List endpoints that can grow without bound accept `limit` / `offset`. Analytics
+vault history (`GET /api/analytics/history`) uses **cursor pagination** instead:
+pass `cursor` from the previous page, keep `limit` at or below
+`ANALYTICS_PAGE_MAX_LIMIT` (default 100 — larger values are rejected), and
+filter with `vaultId`, `actor`, `from`, and `to`. See
+[`docs/ANALYTICS_PAGINATION.md`](docs/ANALYTICS_PAGINATION.md).
+
+## Offset pagination
 
 List endpoints that can grow unbounded accept `limit` and `offset` query
 parameters. `limit` defaults to 20 and is capped at 100. Responses include a

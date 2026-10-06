@@ -1,0 +1,250 @@
+'use strict';
+
+const store = require('../store');
+const config = require('../config');
+const { OrderedIndex } = require('../utils/orderedIndex');
+const { buildHistoryPage } = require('../utils/historyPage');
+const { badRequest } = require('../utils/errors');
+
+/**
+ * Analytics vault-history index.
+ *
+ * Deposit/withdraw ledger rows are appended here in creation order so analytics
+ * clients can page with a cursor that stays stable under concurrent inserts.
+ * Vault, actor, and combined buckets avoid scanning unrelated ledger rows.
+ * Buckets share records and global sequences, so existing cursors remain valid.
+ */
+const historyIndex = new OrderedIndex({
+  sortKeyOf: (tx) => tx.timestamp,
+  groupKeysOf: (tx) => {
+    const keys = [];
+    if (tx.vaultId) keys.push(JSON.stringify(['vault', tx.vaultId]));
+    // Actor matching is strict string equality, just like buildMatch below.
+    if (typeof tx.user === 'string' && tx.user) {
+      keys.push(JSON.stringify(['actor', tx.user]));
+      if (tx.vaultId) keys.push(JSON.stringify(['vaultActor', tx.vaultId, tx.user]));
+    }
+    return keys;
+  },
+});
+
+let bootstrapped = false;
+
+/**
+ * Ensure the in-memory index mirrors store.transactions.
+ * Idempotent; safe to call from tests after store resets.
+ */
+function ensureIndex() {
+  // Cold start only. Size drift after boot is a bug (double-append / missed
+  // write); tests should call rebuildIndex() explicitly after store resets.
+  if (!bootstrapped) {
+    rebuildIndex();
+  }
+}
+
+function rebuildIndex() {
+  historyIndex.reset();
+  // Insertion order of a Map is deterministic; treat that as creation order.
+  for (const tx of store.transactions.values()) {
+    historyIndex.append(tx);
+  }
+  bootstrapped = true;
+}
+
+/**
+ * Append a newly written ledger row. Called from position mutations AFTER the
+ * row has been written to store.transactions.
+ * @param {object} tx
+ */
+function recordTransaction(tx) {
+  if (!bootstrapped) {
+    // Rebuild includes the row already in the store; do not append again.
+    rebuildIndex();
+    return;
+  }
+  historyIndex.append(tx);
+}
+
+/**
+ * Canonical filter set used both for querying and for cursor fingerprints.
+ * Undefined / empty values are dropped so equivalent requests fingerprint alike.
+ */
+function normalizeFilters({ vaultId, actor, from, to } = {}) {
+  const filters = {};
+  if (vaultId) filters.vaultId = String(vaultId);
+  if (actor) filters.actor = String(actor);
+  if (from) filters.from = String(from);
+  if (to) filters.to = String(to);
+  return filters;
+}
+
+function parseTimeBound(raw, label) {
+  if (raw == null || raw === '') return null;
+  const text = String(raw);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.exec(text);
+  const invalid = () => {
+    throw badRequest(`${label} must be an ISO-8601 timestamp with an explicit timezone`, {
+      code: 'INVALID_TIME_BOUND',
+      field: label,
+    });
+  };
+  if (!match) invalid();
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  if (
+    month < 1 || month > 12
+    || day < 1 || day > daysInMonth[month - 1]
+    || hour > 23 || minute > 59 || second > 59
+  ) {
+    invalid();
+  }
+
+  const ms = Date.parse(text);
+  if (!Number.isFinite(ms)) invalid();
+  return ms;
+}
+
+function buildMatch(filters) {
+  const fromMs = parseTimeBound(filters.from, 'from');
+  const toMs = parseTimeBound(filters.to, 'to');
+  if (fromMs != null && toMs != null && fromMs > toMs) {
+    throw badRequest('from must be <= to', { code: 'INVALID_TIME_RANGE' });
+  }
+
+  return (tx) => {
+    if (filters.actor && tx.user !== filters.actor) return false;
+    if (fromMs != null || toMs != null) {
+      const ts = Date.parse(tx.timestamp);
+      if (!Number.isFinite(ts)) return false;
+      if (fromMs != null && ts < fromMs) return false;
+      if (toMs != null && ts > toMs) return false;
+    }
+    return true;
+  };
+}
+
+/**
+ * Indexed scan used by {@link buildHistoryPage}.
+ */
+function historyGroup(filters) {
+  if (filters.actor) {
+    return JSON.stringify(filters.vaultId
+      ? ['vaultActor', filters.vaultId, filters.actor]
+      : ['actor', filters.actor]);
+  }
+  return filters.vaultId ? JSON.stringify(['vault', filters.vaultId]) : null;
+}
+
+function queryHistory({ order, limit, afterSeq, skip, maxScan, filters }) {
+  ensureIndex();
+  const match = buildMatch(filters);
+  const group = historyGroup(filters);
+  return historyIndex.scan({
+    afterSeq,
+    order,
+    group,
+    limit,
+    maxScan,
+    match,
+    skip,
+  });
+}
+
+function countMatching(filters, maxScan) {
+  ensureIndex();
+  const match = buildMatch(filters);
+  const records = historyIndex.recordsFor(historyGroup(filters));
+  // Equality filters are already exact bucket keys. Only time bounds need a
+  // residual pass; a legacy total without them is the bucket's cardinality.
+  if (!filters.from && !filters.to) return records.length;
+
+  // Legacy offset responses promise an exact filtered total. Computing that
+  // total requires a full residual pass over the candidate bucket, so refuse
+  // it when the work would escape the same per-request scan budget used by the
+  // page query. Cursor mode deliberately omits totals and remains bounded.
+  if (records.length > maxScan) {
+    throw badRequest(
+      `legacy offset total cannot scan more than ${maxScan} records; use cursor pagination`,
+      { code: 'OFFSET_TOO_DEEP', maxScan }
+    );
+  }
+
+  let total = 0;
+  for (const record of records) {
+    if (match(record.item)) total += 1;
+  }
+  return total;
+}
+
+function resolvePosition(seq) {
+  ensureIndex();
+  const record = historyIndex.recordAt(seq);
+  return record ? record.key : null;
+}
+
+/**
+ * Page analytics vault history for an HTTP request.
+ *
+ * @param {import('express').Request} req
+ * @returns {{ events: object[], pagination: object }}
+ */
+function listHistory(req) {
+  const filters = normalizeFilters({
+    vaultId: req.query.vaultId,
+    actor: req.query.actor || req.query.user,
+    from: req.query.from,
+    to: req.query.to,
+  });
+
+  const { items, envelope } = buildHistoryPage({
+    req,
+    collection: 'analytics.vaultHistory',
+    filters,
+    defaultOrder: 'desc',
+    query: (args) => queryHistory({ ...args, filters }),
+    countTotal: () => countMatching(filters, config.analyticsPagination.maxScan),
+    resolvePosition,
+  });
+
+  return {
+    events: items,
+    pagination: {
+      ...envelope,
+      strategy: envelope.pageInfo && envelope.offset === undefined
+        ? 'cursor'
+        : envelope.offset !== undefined
+          ? 'offset'
+          : 'cursor',
+      filters,
+      maxLimit: config.analyticsPagination.maxLimit,
+    },
+  };
+}
+
+/**
+ * Test / diagnostics helpers.
+ */
+function getIndexSize() {
+  ensureIndex();
+  return historyIndex.size;
+}
+
+module.exports = {
+  listHistory,
+  recordTransaction,
+  rebuildIndex,
+  ensureIndex,
+  getIndexSize,
+  normalizeFilters,
+  // Exposed for unit tests of the index contract.
+  _historyIndex: historyIndex,
+};
