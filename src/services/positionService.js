@@ -1,7 +1,7 @@
 'use strict';
 
 const store = require('../store');
-const { badRequest, notFound } = require('../utils/errors');
+const { badRequest, notFound, conflict } = require('../utils/errors');
 const { newPositionId } = require('../utils/ids');
 const {
   quoteAssetsToShares,
@@ -21,6 +21,80 @@ const auditService = require('./auditService');
  * underlying asset value of a position is derived from the vault's current
  * price per share, so it grows automatically as yield accrues.
  */
+
+function idempotencyReplay({ idempotencyKey, operation, user, vaultId, amount, shares }) {
+  if (!idempotencyKey) return null;
+
+  const existing = Array.from(store.transactionStates.values()).find(
+    (record) => record.idempotencyKey === idempotencyKey
+  );
+  if (!existing) return null;
+
+  const request = existing.idempotencyRequest;
+  const sameRequest =
+    request &&
+    request.operation === operation &&
+    request.user === user &&
+    request.vaultId === vaultId &&
+    (operation === 'deposit' ? request.amount === amount : request.shares === shares);
+
+  if (!sameRequest) {
+    throw conflict('Idempotency key is already bound to a different request');
+  }
+  if (!existing.idempotencyResponse) {
+    throw conflict('Idempotency key was already used and cannot be safely replayed');
+  }
+  return structuredClone(existing.idempotencyResponse);
+}
+
+function rememberIdempotency({ txHash, idempotencyKey, request, response }) {
+  if (!idempotencyKey) return;
+  const record = store.transactionStates.get(txHash);
+  if (!record) {
+    throw new Error('Transaction lifecycle record missing while storing idempotency result');
+  }
+  record.idempotencyRequest = structuredClone(request);
+  record.idempotencyResponse = structuredClone(response);
+}
+
+/**
+ * A provider submission cannot be rolled back with the in-memory accounting
+ * snapshot. If a later local write fails, restore the financial snapshot but
+ * retain provider/lifecycle evidence so reconciliation can surface the gap and
+ * an idempotent retry cannot silently submit the same operation again.
+ */
+function preserveProviderRecovery({
+  tx,
+  user,
+  vaultId,
+  idempotencyKey,
+  correlationId,
+  request,
+  ledger,
+}) {
+  transactionLifecycle.registerProviderResult({
+    tx,
+    user,
+    vaultId,
+    idempotencyKey,
+    correlationId,
+  });
+  store.transactions.set(tx.txHash, {
+    ...tx,
+    user,
+    vaultId,
+    ...ledger,
+    accountingApplied: false,
+  });
+  if (idempotencyKey) {
+    const record = store.transactionStates.get(tx.txHash);
+    if (!record) {
+      throw new Error('Transaction lifecycle record missing while preserving recovery evidence');
+    }
+    record.idempotencyRequest = structuredClone(request);
+    delete record.idempotencyResponse;
+  }
+}
 
 function serialize(position) {
   const vault = store.vaults.get(position.vaultId);
@@ -44,119 +118,194 @@ function serialize(position) {
 }
 
 function deposit({ user, vaultId, amount, idempotencyKey, correlationId }) {
-  const vault = vaultService.getVaultRecord(vaultId);
-  const before = { totalAssets: vault.totalAssets, totalShares: vault.totalShares };
-  let conversion;
+  let submittedTx = null;
+  let submittedRequest = null;
+  let submittedLedger = null;
   try {
-    conversion = quoteAssetsToShares(amount, vault.totalAssets, vault.totalShares);
+    return store.runAtomic(() => {
+    const replay = idempotencyReplay({
+      idempotencyKey, operation: 'deposit', user, vaultId, amount,
+    });
+    if (replay) return replay;
+
+    const vault = vaultService.getVaultRecord(vaultId);
+    const before = { totalAssets: vault.totalAssets, totalShares: vault.totalShares };
+    let conversion;
+    try {
+      conversion = quoteAssetsToShares(amount, vault.totalAssets, vault.totalShares);
+    } catch (error) {
+      throw badRequest(error.message);
+    }
+    const shares = conversion.shares;
+    amount = conversion.assets;
+
+    submittedRequest = { operation: 'deposit', user, vaultId, amount };
+    const tx = stellarService.submitInvocation('deposit', { user, vaultId, amount });
+    submittedTx = tx;
+    submittedLedger = { amount };
+    transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
+    store.transactions.set(tx.txHash, { ...tx, user, vaultId, amount, accountingApplied: true });
+
+    vault.totalAssets = round(vault.totalAssets + amount);
+    vault.totalShares = round(vault.totalShares + shares);
+
+    // Reuse an existing position for this user/vault pair when present.
+    let position = Array.from(store.positions.values()).find(
+      (p) => p.user === user && p.vaultId === vaultId
+    );
+
+    const now = Date.now();
+    if (position) {
+      position.shares = round(position.shares + shares);
+      position.principal = round(position.principal + amount);
+      position.updatedAt = now;
+    } else {
+      position = {
+        id: newPositionId(),
+        user,
+        vaultId,
+        shares,
+        principal: amount,
+        createdAt: now,
+        updatedAt: now,
+      };
+      store.positions.set(position.id, position);
+    }
+
+    const result = { position: serialize(position), tx };
+    rememberIdempotency({
+      txHash: tx.txHash,
+      idempotencyKey,
+      request: submittedRequest,
+      response: result,
+    });
+    auditService.record({
+      actor: user,
+      action: 'vault.deposit',
+      target: vaultId,
+      correlationId,
+      outcome: 'success',
+      before,
+      after: { totalAssets: vault.totalAssets, totalShares: vault.totalShares, amount, shares },
+    });
+    return result;
+    });
   } catch (error) {
-    throw badRequest(error.message);
+    if (submittedTx) {
+      preserveProviderRecovery({
+        tx: submittedTx,
+        user,
+        vaultId,
+        idempotencyKey,
+        correlationId,
+        request: submittedRequest,
+        ledger: submittedLedger,
+      });
+    }
+    throw error;
   }
-  const shares = conversion.shares;
-  amount = conversion.assets;
-
-  const tx = stellarService.submitInvocation('deposit', { user, vaultId, amount });
-  transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
-  store.transactions.set(tx.txHash, { ...tx, user, vaultId, amount });
-
-  vault.totalAssets = round(vault.totalAssets + amount);
-  vault.totalShares = round(vault.totalShares + shares);
-
-  // Reuse an existing position for this user/vault pair when present.
-  let position = Array.from(store.positions.values()).find(
-    (p) => p.user === user && p.vaultId === vaultId
-  );
-
-  const now = Date.now();
-  if (position) {
-    position.shares = round(position.shares + shares);
-    position.principal = round(position.principal + amount);
-    position.updatedAt = now;
-  } else {
-    position = {
-      id: newPositionId(),
-      user,
-      vaultId,
-      shares,
-      principal: amount,
-      createdAt: now,
-      updatedAt: now,
-    };
-    store.positions.set(position.id, position);
-  }
-
-  const result = { position: serialize(position), tx };
-  auditService.record({
-    actor: user,
-    action: 'vault.deposit',
-    target: vaultId,
-    correlationId,
-    outcome: 'success',
-    before,
-    after: { totalAssets: vault.totalAssets, totalShares: vault.totalShares, amount, shares },
-  });
-  return result;
 }
 
 function withdraw({ user, vaultId, shares, idempotencyKey, correlationId }) {
-  const vault = vaultService.getVaultRecord(vaultId);
-  const position = Array.from(store.positions.values()).find(
-    (p) => p.user === user && p.vaultId === vaultId
-  );
-
-  if (!position) {
-    throw notFound(`No position found for user ${user} in vault ${vaultId}`);
-  }
-  if (shares > position.shares) {
-    throw badRequest('Withdraw amount exceeds position shares', {
-      requested: shares,
-      available: position.shares,
-    });
-  }
-
-  const before = { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares };
-  let conversion;
+  let submittedTx = null;
+  let submittedRequest = null;
+  let submittedLedger = null;
   try {
-    conversion = quoteSharesToAssets(shares, vault.totalAssets, vault.totalShares);
+    return store.runAtomic(() => {
+    const replay = idempotencyReplay({
+      idempotencyKey, operation: 'withdraw', user, vaultId, shares,
+    });
+    if (replay) return replay;
+
+    const vault = vaultService.getVaultRecord(vaultId);
+    const position = Array.from(store.positions.values()).find(
+      (p) => p.user === user && p.vaultId === vaultId
+    );
+
+    if (!position) {
+      throw notFound(`No position found for user ${user} in vault ${vaultId}`);
+    }
+    if (shares > position.shares) {
+      throw badRequest('Withdraw amount exceeds position shares', {
+        requested: shares,
+        available: position.shares,
+      });
+    }
+
+    const before = { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares };
+    let conversion;
+    try {
+      conversion = quoteSharesToAssets(shares, vault.totalAssets, vault.totalShares);
+    } catch (error) {
+      throw badRequest(error.message);
+    }
+    shares = conversion.shares;
+    const assets = conversion.assets;
+    submittedRequest = { operation: 'withdraw', user, vaultId, shares };
+    const tx = stellarService.submitInvocation('withdraw', { user, vaultId, shares });
+    submittedTx = tx;
+    submittedLedger = { shares, assets };
+    transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
+    store.transactions.set(tx.txHash, {
+      ...tx,
+      user,
+      vaultId,
+      shares,
+      assets,
+      accountingApplied: true,
+    });
+
+    vault.totalAssets = round(vault.totalAssets - assets);
+    vault.totalShares = round(vault.totalShares - shares);
+
+    position.shares = round(position.shares - shares);
+    // Reduce principal proportionally to the shares being redeemed.
+    const principalFraction =
+      position.shares <= 0
+        ? 0
+        : round(position.principal * (position.shares / (position.shares + shares)));
+    position.principal = position.shares <= 0 ? 0 : principalFraction;
+    position.updatedAt = Date.now();
+
+    let result;
+    if (position.shares <= 0) {
+      store.positions.delete(position.id);
+      result = { withdrawnAssets: assets, tx, position: null };
+    } else {
+      result = { withdrawnAssets: assets, tx, position: serialize(position) };
+    }
+
+    rememberIdempotency({
+      txHash: tx.txHash,
+      idempotencyKey,
+      request: submittedRequest,
+      response: result,
+    });
+    auditService.record({
+      actor: user,
+      action: 'vault.withdraw',
+      target: vaultId,
+      correlationId,
+      outcome: 'success',
+      before,
+      after: { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares, assets },
+    });
+    return result;
+    });
   } catch (error) {
-    throw badRequest(error.message);
+    if (submittedTx) {
+      preserveProviderRecovery({
+        tx: submittedTx,
+        user,
+        vaultId,
+        idempotencyKey,
+        correlationId,
+        request: submittedRequest,
+        ledger: submittedLedger,
+      });
+    }
+    throw error;
   }
-  shares = conversion.shares;
-  const assets = conversion.assets;
-  const tx = stellarService.submitInvocation('withdraw', { user, vaultId, shares });
-  transactionLifecycle.registerProviderResult({ tx, user, vaultId, idempotencyKey, correlationId });
-  store.transactions.set(tx.txHash, { ...tx, user, vaultId, shares, assets });
-
-  vault.totalAssets = round(vault.totalAssets - assets);
-  vault.totalShares = round(vault.totalShares - shares);
-
-  position.shares = round(position.shares - shares);
-  // Reduce principal proportionally to the shares being redeemed.
-  const principalFraction =
-    position.shares <= 0
-      ? 0
-      : round(position.principal * (position.shares / (position.shares + shares)));
-  position.principal = position.shares <= 0 ? 0 : principalFraction;
-  position.updatedAt = Date.now();
-
-  let result;
-  if (position.shares <= 0) {
-    store.positions.delete(position.id);
-    result = { withdrawnAssets: assets, tx, position: null };
-  } else {
-    result = { withdrawnAssets: assets, tx, position: serialize(position) };
-  }
-
-  auditService.record({
-    actor: user,
-    action: 'vault.withdraw',
-    target: vaultId,
-    correlationId,
-    outcome: 'success',
-    before,
-    after: { shares: position.shares, totalAssets: vault.totalAssets, totalShares: vault.totalShares, assets },
-  });
-  return result;
 }
 
 function previewDeposit({ vaultId, amount }) {
