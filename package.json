@@ -4,8 +4,8 @@
   "description": "Backend REST API for YieldVault, a Soroban DeFi yield vault app",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node src/server.js",
+    "start": "node init && node src/server.js",
+    "dev": "node init && node src/server.js",
     "test": "node --test",
     "validate:contracts": "node scripts/validate-contract-fixtures.js"
   },
